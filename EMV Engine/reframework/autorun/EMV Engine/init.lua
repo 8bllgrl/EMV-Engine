@@ -7,7 +7,12 @@ local  version = "2.0.5" --July 15, 2024
 
 --Global variables --------------------------------------------------------------------------------------------------------------------------
 _G["is" .. reframework.get_game_name():sub(1, 3):upper()] = true --sets up the "isRE2", "isRE3" etc boolean
-BitStream = require("EMV Engine/Bitstream")
+local isDMC = isDMC
+local sdk = sdk
+local Matrix4x4f = Matrix4x4f
+-- BitStream = require("EMV Engine/Bitstream")
+BitStream = require("BitStream") -- this seems to be temporary...
+ConfigModule = require("config_and_constants") -- EMV_Engine/ later
 
 _data = {}				--Tables used for indexing REManagedObjects, RETransforms, SystemArrays and ValueTypes
 metadata_methods = {}		--Cached table of functions, fields, etc ("propdata") for each type definition, indexed by full typedef name
@@ -25,63 +30,16 @@ RSCache = {}				--Cached resources (files)
 RN = {} 					--Resource names (filenames)
 History = {}				--Previous console commands and their results	
 
+local Config = ConfigModule.create({
+    sdk = sdk,
+    isDMC = isDMC,
+    Matrix4x4f = Matrix4x4f,
+})
+
 
 --Default Settings:
-local default_SettingsCache = {}
-SettingsCache = {
-	load_json = true,
-	exception_methods = {},
-	generic_count_methods = {["via.motion.Motion"] = "get_JointCount"},
-	typedef_names_to_extensions = {},
-	max_element_size = 100,
-	use_child_windows = false,
-	transparent_bg = false,
-	always_update_lists = false,
-	affect_children = true,
-	show_all_fields = false,
-	remember_materials = true,
-	show_console = true,
-	show_uvars = true,
-	detach_collection = false,
-	show_editable_tables = false,
-	add_DMC5_names = isDMC or false,
-	embed_mobj_control_panel = true,
-	cache_orderedPairs = false,
-	use_pcall = true,
-	increments = {},
-	objs_to_update = {},
-	update_module_idx = 1,
-	use_color_bytes = false,
-	show_enable_checkboxes = true,
-	load_resources = true,
-	max_open_time = 30,
-	Collection_data = {
-		collection_xforms = {},
-		worldmatrix = Matrix4x4f.identity(),
-		only_parents = true,
-		search_enemies = true,
-		enable_component_search = true, 
-		enable_exclude_search = true,
-		enable_include_search = false,
-		case_sensitive = false,
-		enabled_new_components = {},
-		must_have = {
-			checked = true, 
-			Component="via.motion.MotionFsm2"
-		},
-		search_for = {
-			"via.physics.CharacterController",
-			"via.motion.ActorMotion",
-			"via.motion.DummySkeleton",
-		},
-		included = {
-			"[New]"
-		},
-		excluded = {
-			"gimmick",
-		},
-	}
-}
+default_SettingsCache = {}
+SettingsCache = Config.SettingsCache
 
 local font = imgui.load_font('NotoSansSC-Bold.otf', imgui.get_default_font_size()+2, {
     0x0020, 0x00FF, -- Basic Latin + Latin Supplement
@@ -220,50 +178,13 @@ local misc_vars = {
 	},
 }
 
-local cog_names = { 
-	["re2"] = "COG", 
-	["re3"] = "COG", 
-	["re7"] = "Hip", 
-	["re8"] = "Hip", 
-	["dmc5"] = "Hip", 
-	["mhrise"] = "Cog", 
-	["sf6"] = "C_Hip", 
-	["re4"] = "Hip", 
-}
-local mat_types = {
-	[1] = "MaterialFloat",
-	[4] = "MaterialFloat4",
-	[0] = "MaterialBool"
-}
-local nums_to_xyzw = {
-	[0]="x",
-	[1]="y",
-	[2]="z",
-	[3]="w",
-}
-local typedef_to_function = {
-	["System.SByte"] = sdk.create_sbyte,
-	["System.Byte"] = sdk.create_sbyte,
-	["System.Int16"] = sdk.create_int16,
-	["System.UInt16"] = sdk.create_uint16,
-	["System.Int32"] = sdk.create_int32,
-	["System.UInt32"] = sdk.create_uint32,
-	["System.Int64"] = sdk.create_int64,
-	["System.UInt64"] = sdk.create_uint64,
-	["System.Single"] = sdk.create_single,
-	["System.Double"] = sdk.create_double,
-	["System.String"] = sdk.create_managed_string,
-	["System.Array"] = sdk.create_managed_array,
-	["via.ResourceHolder"] = sdk.create_resource,
-}
+cog_names = Config.cog_names
+mat_types = Config.mat_types
+nums_to_xyzw = Config.nums_to_xyzw
+typedef_to_function =  Config.typedef_to_function
 
 --List of object examples on which to implement REMgdObj class
-local REMgdObj_objects = {
-	ValueType = ValueType.new(sdk.find_type_definition("via.AABB")),
-	--REMgdObj_objects.BehaviorTree = findc("via.motion.MotionFsm2")[1],
-	RETransform = scene:call("get_FirstTransform"),
-	REManagedObject = scene,
-}
+REMgdObj_objects = Config.REMgdObj_objects
 if not isRE4 then
 	--REMgdObj_objects.SystemArray = sdk.find_type_definition("System.Array"):get_method("CreateInstance"):call(nil, sdk.typeof("via.Transform"), 0):add_ref()
 end
