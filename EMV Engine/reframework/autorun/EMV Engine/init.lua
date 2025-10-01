@@ -46,7 +46,7 @@ local version = Config.version
 
 --Default Settings:
 local default_SettingsCache = Config.default_SettingsCache
-local SettingsCache = Config.SettingsCache
+SettingsCache = Config.SettingsCache
 
 local font = imgui.load_font('NotoSansSC-Bold.otf', imgui.get_default_font_size()+2, {
     0x0020, 0x00FF, -- Basic Latin + Latin Supplement
@@ -204,24 +204,6 @@ local clear_object
 local get_GameObject
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
---Insert into an ordered list of strings alphabetically
-function table.binsert(t, value, fcomp)
-	local fcomp = fcomp or function(a, b) return a < b end
-	local iStart, iEnd, iMid, iState =  1, #t, 1, 0
-	while iStart <= iEnd do
-		iMid = math.floor((iStart + iEnd) / 2)
-		if fcomp(value , t[iMid]) then
-			iEnd = iMid - 1
-			iState = 0
-		else
-			iStart = iMid + 1
-			iState = 1
-		end
-	end
-	local pos = iMid+iState
-	table.insert(t, pos, value)
-	return pos
-end
 
 function table.extend(tbl_a, tbl_b)
 	for i, item in ipairs(tbl_b) do

@@ -4,7 +4,9 @@
 
 --if true then return end
 --EMV local functions and tables:
-local EMV = require("EMV Engine")
+-- local EMV = require("EMV Engine")
+package.path = package.path .. ";E:/Start_Here/User_Files/Code/lua/EMV-Engine/EMV Engine/reframework/autorun/EMV Engine/?.lua" -- glad my path is not privacy invasion
+local EMV = require("init")
 
 local GameObject = EMV.GameObject
 local kb_state = EMV.kb_state
