@@ -10,7 +10,7 @@ local Matrix4x4f = Matrix4x4f
 BitStream = require("BitStream") -- this seems to be temporary...
 ConfigModule = require("config_and_constants") -- EMV_Engine/ later\
 
-local Utils = require("EMV_Utils").create({
+Utils = require("EMV_Utils").create({
     os = os,
     Vector3f = Vector3f,
     Vector4f = Vector4f,
@@ -204,34 +204,6 @@ local clear_object
 local get_GameObject
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
-
-function table.extend(tbl_a, tbl_b)
-	for i, item in ipairs(tbl_b) do
-		table.insert(tbl_a, item)
-	end
-end
-
---Find index where a string would be inserted into an alphabetically-ordered list of strings
---[[function table.bfind(t, value, fcompval, reverse)
-	fcompval = fcompval or function(value) return value end
-	fcomp = function(a, b) return a < b end
-	if reverse then
-		fcomp = function(a, b) return a > b end
-	end
-	local iStart, iEnd, iMid = 1, #t, 1
-	while (iStart <= iEnd) do
-		iMid = math.floor((iStart + iEnd) / 2)
-		local value2 = fcompval(t[iMid])
-		if value == value2 then
-			return iMid, t[iMid]
-		end
-		if fcomp(value, value2) then
-			iEnd = iMid - 1
-		else
-			iStart = iMid + 1
-		end
-	end
-end]]
 
 --Get the next value in a table
 local nextValue = function(tbl)
