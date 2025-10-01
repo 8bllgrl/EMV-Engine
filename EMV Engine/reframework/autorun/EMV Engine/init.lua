@@ -1,9 +1,5 @@
 --EMV_Engine by alphaZomega
 --Console, imgui and support classes and functions for REFramework
-local  version = "2.0.5" --July 15, 2024
-
---Fixed bug with Chain Groups not showing for via.motion.chain
-
 
 --Global variables --------------------------------------------------------------------------------------------------------------------------
 _G["is" .. reframework.get_game_name():sub(1, 3):upper()] = true --sets up the "isRE2", "isRE3" etc boolean
@@ -12,7 +8,7 @@ local sdk = sdk
 local Matrix4x4f = Matrix4x4f
 -- BitStream = require("EMV Engine/Bitstream")
 BitStream = require("BitStream") -- this seems to be temporary...
-ConfigModule = require("config_and_constants") -- EMV_Engine/ later
+local ConfigModule = require("config_and_constants") -- EMV_Engine/ later\
 
 _data = {}				--Tables used for indexing REManagedObjects, RETransforms, SystemArrays and ValueTypes
 metadata_methods = {}		--Cached table of functions, fields, etc ("propdata") for each type definition, indexed by full typedef name
@@ -34,12 +30,15 @@ local Config = ConfigModule.create({
     sdk = sdk,
     isDMC = isDMC,
     Matrix4x4f = Matrix4x4f,
+    ValueType = ValueType,
+    scene = scene,
 })
 
+local version = Config.version 
 
 --Default Settings:
-default_SettingsCache = {}
-SettingsCache = Config.SettingsCache
+local default_SettingsCache = Config.default_SettingsCache
+local SettingsCache = Config.SettingsCache
 
 local font = imgui.load_font('NotoSansSC-Bold.otf', imgui.get_default_font_size()+2, {
     0x0020, 0x00FF, -- Basic Latin + Latin Supplement
@@ -157,37 +156,22 @@ if static_objs.main_view ~= nil then
 	statics.height = size:get_field("h")
 end
 
-local misc_vars = {
-	is_any_ctx_menu_open = false,
-	tooltip_timers = 0,
-	hovered_this_frame = 0,
-	update_modules = {
-		"UpdateBehavior",
-		"PrepareRendering",
-		"UpdateMotion",
-		"LateUpdateBehavior",
-	},
-	skip_props = {
-		HashCode = true,
-		--Type = true,
-		_DeltaTime = true,
-		_UpdateCost = true,
-		_LateUpdateCost = true,
-		_IsInstanceEnable = true,
-		
-	},
-}
-
+local misc_vars = Config.misc_vars
 cog_names = Config.cog_names
 mat_types = Config.mat_types
 nums_to_xyzw = Config.nums_to_xyzw
-typedef_to_function =  Config.typedef_to_function
+typedef_to_function = Config.typedef_to_function
 
 --List of object examples on which to implement REMgdObj class
-REMgdObj_objects = Config.REMgdObj_objects
-if not isRE4 then
-	--REMgdObj_objects.SystemArray = sdk.find_type_definition("System.Array"):get_method("CreateInstance"):call(nil, sdk.typeof("via.Transform"), 0):add_ref()
-end
+local REMgdObj_objects = {}
+
+REMgdObj_objects.ValueType = ValueType.new(sdk.find_type_definition("via.AABB"))
+REMgdObj_objects.REManagedObject = scene -- Assuming scene is used as the default managed object example
+REMgdObj_objects.BHVT = BHVT and BHVT.obj or REMgdObj_objects.BHVT -- Assuming BHVT is defined later and we capture its object
+REMgdObj_objects.RETransform = scene and scene:call("get_FirstTransform") or nil
+
+getmetatable(REMgdObj_objects.ValueType).__is_vt = true
+
 
 --local addresses of important functions and tables defined later:
 EMV = {}
@@ -3294,13 +3278,19 @@ local function create_gameobj(name, component_names, args, dont_rename)
 				--	pcall(new_component.call, new_component, "awake()")
 				--	pcall(new_component.call, new_component, "start()")
 				end
-				if name == "via.render.Mesh" and args.mesh then 
+				if name == "via.render.Mesh" and args.mesh then
 					local mesh_res = create_resource(args.mesh, "via.render.MeshResource")
 					if mesh_res then
-						local mdf_res = create_resource(args.mdf or args.mesh:gsub("%.mesh", ".mdf2"), "via.render.MeshMaterialResource")
+						local mdf_name = args.mdf or args.mesh:gsub("%.mesh", ".mdf2")
+						local mdf_res = create_resource(mdf_name, "via.render.MeshMaterialResource")
 						new_component:call("setMesh", mesh_res)
 						if mdf_res then
-							new_component:call("set_Material", mdf_res)
+							local success, result = pcall(new_component.call, new_component, "set_Material", mdf_res)
+							if not success then
+								log.info("Warning: Failed to set material '" .. tostring(mdf_name) .. "' for component " .. name .. " - " .. tostring(result))
+							end
+						else
+							log.info("Warning: Failed to create material resource '" .. tostring(mdf_name) .. "'")
 						end
 						args.mesh, args.mdf = nil
 					end
@@ -4101,6 +4091,15 @@ local function log_value(value, value_name, layer_limit, layer, verbose, return_
 	else 
 		log.info(msg)
 	end
+end
+
+local function log_stack_trace()
+    local msg = "Stack Trace:\n"
+    for i = 2, 10 do -- Start at 2 to skip this function call itself
+        local info = debug.getinfo(i, "nS")
+        if info then msg = msg .. "  " .. info.name .. " at " .. info.short_src .. ":" .. info.currentline .. "\n" end
+    end
+    log.info(msg)
 end
 
 --Global printer version of above:

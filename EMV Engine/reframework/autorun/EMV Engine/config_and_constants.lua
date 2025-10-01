@@ -6,12 +6,9 @@ local M = {}
 --- @param dependencies.isDMC boolean Flag indicating if the game is DMC5.
 --- @param dependencies.Matrix4x4f userdata The REFramework Matrix4x4f constructor.
 --- @param dependencies.ValueType userdata The REFramework ValueType constructor.
-function M.create(dependencies)
-    local sdk = dependencies.sdk
-    local isDMC = dependencies.isDMC
-    local Matrix4x4f = dependencies.Matrix4x4f
-    local ValueType = dependencies.ValueType
-
+--- @param dependencies.scene userdata The REFramework scene object (needed for initial object refs).
+function M.create(deps)
+    -- This module only defines constants and config tables, injecting dependencies as values.
     local exports = {}
     
     -- Metadata and Version
@@ -35,8 +32,7 @@ function M.create(dependencies)
         show_uvars = true,
         detach_collection = false,
         show_editable_tables = false,
-        -- Dependency Injected Value:
-        add_DMC5_names = isDMC or false, 
+        add_DMC5_names = deps.isDMC or false, 
         embed_mobj_control_panel = true,
         cache_orderedPairs = false,
         use_pcall = true,
@@ -49,8 +45,7 @@ function M.create(dependencies)
         max_open_time = 30,
         Collection_data = {
             collection_xforms = {},
-            -- Dependency Injected Value:
-            worldmatrix = Matrix4x4f and Matrix4x4f.identity() or nil,
+            worldmatrix = deps.Matrix4x4f and deps.Matrix4x4f.identity() or nil,
             only_parents = true,
             search_enemies = true,
             enable_component_search = true, 
@@ -103,26 +98,28 @@ function M.create(dependencies)
 
     -- Type-to-Function Mapping (Uses injected 'sdk')
     exports.typedef_to_function = {
-        ["System.SByte"] = sdk.create_sbyte,
-        ["System.Byte"] = sdk.create_sbyte,
-        ["System.Int16"] = sdk.create_int16,
-        ["System.UInt16"] = sdk.create_uint16,
-        ["System.Int32"] = sdk.create_int32,
-        ["System.UInt32"] = sdk.create_uint32,
-        ["System.Int64"] = sdk.create_int64,
-        ["System.UInt64"] = sdk.create_uint64,
-        ["System.Single"] = sdk.create_single,
-        ["System.Double"] = sdk.create_double,
-        ["System.String"] = sdk.create_managed_string,
-        ["System.Array"] = sdk.create_managed_array,
-        ["via.ResourceHolder"] = sdk.create_resource,
+        ["System.SByte"] = deps.sdk.create_sbyte,
+        ["System.Byte"] = deps.sdk.create_sbyte,
+        ["System.Int16"] = deps.sdk.create_int16,
+        ["System.UInt16"] = deps.sdk.create_uint16,
+        ["System.Int32"] = deps.sdk.create_int32,
+        ["System.UInt32"] = deps.sdk.create_uint32,
+        ["System.Int64"] = deps.sdk.create_int64,
+        ["System.UInt64"] = deps.sdk.create_uint64,
+        ["System.Single"] = deps.sdk.create_single,
+        ["System.Double"] = deps.sdk.create_double,
+        ["System.String"] = deps.sdk.create_managed_string,
+        ["System.Array"] = deps.sdk.create_managed_array,
+        ["via.ResourceHolder"] = deps.sdk.create_resource,
     }
     
-    -- Object Examples (requires dynamic lookups, which is fine in the central init.lua)
-    -- We include the constructors/classes here so init.lua can build these objects later.
-    exports.REMgdObj_objects = {
-        ValueType = ValueType,
-        -- RETransform will be assigned later by init.lua, as it relies on 'scene' being available.
+    -- Object Examples (Instantiated in init.lua using 'deps' provided below)
+    exports.REMgdObj_objects_DEFS = {
+        -- These are placeholders for what needs to be instantiated later in init.lua:
+        "ValueType", 
+        "RETransform", 
+        "REManagedObject",
+        "BHVT" -- special case for MotionFsm2 Layer
     }
     
     -- Local variables (Constants) that were previously spread out
