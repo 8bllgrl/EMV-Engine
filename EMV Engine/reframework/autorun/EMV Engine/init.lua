@@ -8,7 +8,15 @@ local sdk = sdk
 local Matrix4x4f = Matrix4x4f
 -- BitStream = require("EMV Engine/Bitstream")
 BitStream = require("BitStream") -- this seems to be temporary...
-local ConfigModule = require("config_and_constants") -- EMV_Engine/ later\
+ConfigModule = require("config_and_constants") -- EMV_Engine/ later\
+
+local Utils = require("EMV_Utils").create({
+    os = os,
+    Vector3f = Vector3f,
+    Vector4f = Vector4f,
+    Matrix4x4f = Matrix4x4f,
+    Quaternion = Quaternion,
+})
 
 _data = {}				--Tables used for indexing REManagedObjects, RETransforms, SystemArrays and ValueTypes
 metadata_methods = {}		--Cached table of functions, fields, etc ("propdata") for each type definition, indexed by full typedef name
@@ -3124,7 +3132,7 @@ local function add_resource_to_cache(resource_holder, paired_resource_holder, da
 	local current_idx = 1
 	
 	if not RSCache[rs_name][resource_path] then 
-		current_idx = table.binsert(RN[rn_name], resource_path)
+		current_idx = Utils.binsert(RN[rn_name], resource_path)
 		RSCache[rs_name][resource_path] = ((paired_resource_holder or (ext == "mesh")) and {resource_holder, paired_resource_holder}) or resource_holder
 		resource_holder = resource_holder:add_ref()
 		_G.resource_added = true
@@ -3145,7 +3153,7 @@ add_pfb_to_cache = function(via_prefab, pfb_path)
 	end
 	pfb_path = pfb_path or via_prefab:call("get_Path")
 	if via_prefab:call("get_Exist") then
-		local current_idx = not RSCache.pfb_resources[pfb_path] and table.binsert(RN.pfb_resource_names, pfb_path)
+		local current_idx = not RSCache.pfb_resources[pfb_path] and Utils.binsert(RN.pfb_resource_names, pfb_path)
 		RSCache.pfb_resources[pfb_path] = via_prefab
 		return current_idx, pfb_path, "pfb"
 	else
@@ -9170,7 +9178,7 @@ GameObject = {
 			for i, filepath in ipairs(poser.paths) do 
 				table.insert(poser.names, filepath:match("^.+\\(.+)%."))
 			end
-			poser.current_object_idx = find_index(poser.names, poser.current_name) or table.binsert(poser.names, poser.current_name)
+			poser.current_object_idx = find_index(poser.names, poser.current_name) or Utils.binsert(poser.names, poser.current_name)
 		end
 		
 		if imgui.tree_node("[Lua]") then
