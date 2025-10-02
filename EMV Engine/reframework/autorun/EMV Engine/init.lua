@@ -206,10 +206,10 @@ local get_GameObject
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
 
 --Get the next value in a table
-local nextValue = function(tbl)
-	local key, value = next(tbl)
-	return value
-end
+-- local nextValue = function(tbl)
+-- 	local key, value = next(tbl)
+-- 	return value
+-- end
 
 --Test if a lua variable can be indexed
 local function can_index(lua_object)
@@ -218,11 +218,11 @@ local function can_index(lua_object)
 end
 
 --Get a random chance. 1/60th odds would be "if random(60) then"
-local function random(ratio)
-	if ratio == 1 then return true end
-	math.randomseed(math.floor(os.clock()*100))
-	return (math.random(1, ratio) == 1)
-end
+-- local function random(ratio)
+-- 	if ratio == 1 then return true end
+-- 	math.randomseed(math.floor(os.clock()*100))
+-- 	return (math.random(1, ratio) == 1)
+-- end
 
 --Get a random number in a range
 local function random_range(start, finish)
@@ -752,7 +752,7 @@ local function is_valid_obj(obj, is_not_vt)
 			return true
 		end
 		--if type(obj.read_qword)~="function" or obj:read_qword(0x10)==0 then return false end
-		return sdk.is_managed_object(obj) and can_index(obj) and not is_only_my_ref(obj)
+		return sdk.is_managed_object(obj) and Utils.can_index(obj) and not is_only_my_ref(obj)
 	end
 end
 
@@ -1148,7 +1148,7 @@ local ImguiTable = {
 			name = elem_key .. ":	" .. logv(element)
 		else
 			if element.__type and not pcall(function() for k, v in pairs(element) do goto exit end ::exit:: end) then return element.__type.name end
-			if (element.new or element.update) and can_index(element) then --or (can_index(element) and element.new and (element.name .. ""))
+			if (element.new or element.update) and Utils.can_index(element) then --or (can_index(element) and element.new and (element.name .. ""))
 				name = elem_key .. ":	" .. tostring(element.name) .. "	[Object] (" .. get_table_size(element) .. " elements)"
 			elseif isArray(element) then
 				name = elem_key .. ":	[" .. #element .. " elements]" 
@@ -1307,7 +1307,7 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 						
 						if ((type(element) ~= "table") or (not element.__pairs or pcall(element.__pairs, element))) then
 							
-							local do_update = (not tbl_obj.element_data[i]) or random(50)
+							local do_update = (not tbl_obj.element_data[i]) or Utils.random(50)
 							local e_d = tbl_obj.element_data[i] or {}
 							local tostring_name = tostring(element)
 							local is_vec = (not do_update and e_d.is_vec) or tostring_name:find(":vector") or nil
@@ -1452,7 +1452,7 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 	
 	if elem == nil then return end
 	local is_vec = is_vec or tostring(elem):find(":vector")
-	is_obj = is_obj or (not is_vec and can_index(elem) and type(elem.call) == "function" and type(elem)=="userdata")
+	is_obj = is_obj or (not is_vec and Utils.can_index(elem) and type(elem.call) == "function" and type(elem)=="userdata")
 	key = key or tostring(elem)
 	
 	if index then 
@@ -2545,7 +2545,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 							new_tbl[key] = loops[value] 
 						end
 					end
-				elseif can_index(value) then 
+				elseif Utils.can_index(value) then 
 					if type(value[0])=="userdata" then 
 						local str = "mat:" 
 						for i=0, 3 do 
@@ -3207,7 +3207,7 @@ local function create_gameobj(name, component_names, args, dont_rename)
 	if args.parent then
 		if type(args.parent)=="string" then
 			scene:call("findGameObject(System.String)", args.parent)
-		elseif can_index(args.parent) and args.parent.get_type_definition then
+		elseif Utils.can_index(args.parent) and args.parent.get_type_definition then
 			parent_gameobj = args.parent:call("get_GameObject") or args.parent
 		end
 	end
@@ -3985,7 +3985,7 @@ local function log_value(value, value_name, layer_limit, layer, verbose, return_
 			else 
 				table.insert(msg, "{}")
 			end
-		elseif can_index(value) and pcall(function() return value.x end) then --without pcall, broken REManagedObjects will slip through and break it
+		elseif Utils.can_index(value) and pcall(function() return value.x end) then --without pcall, broken REManagedObjects will slip through and break it
 			local mt = getmetatable(value)
 			if type(mt.__type) == "table" and mt.__type.name and not value.x then --string.find(str_val, "sdk::") and not str_val:find(":vector<") then 
 				local typename = mt.__type.name
@@ -4416,10 +4416,10 @@ get_mgd_obj_name = function(m_obj, o_tbl, idx, only_relevant, skip_if_fail)
 	o_tbl = o_tbl or _data[m_obj] or (m_obj.get_type_definition and not skip_if_fail and create_REMgdObj(m_obj))
 	if not o_tbl then return m_obj:get_type_definition():get_full_name() end
 	
-	local typedef, name = (o_tbl.is_lua_type and (o_tbl.item_type or o_tbl.ret_type or o_tbl.type)) or (can_index(m_obj) and m_obj.get_type_definition and m_obj:get_type_definition()), nil
+	local typedef, name = (o_tbl.is_lua_type and (o_tbl.item_type or o_tbl.ret_type or o_tbl.type)) or (Utils.can_index(m_obj) and m_obj.get_type_definition and m_obj:get_type_definition()), nil
 	if not typedef then return tostring(m_obj) end
 	local td_name = typedef:get_full_name()
-	local indexable = can_index(m_obj)
+	local indexable = Utils.can_index(m_obj)
 	
 	if typedef:is_a("System.Array") or td_name:match("<(.+)>") then --arrays
 		--name = (o_tbl.elements and can_index(o_tbl.elements[1]) and (o_tbl.elements[1]:get_type_definition():get_full_name().."["..#o_tbl.elements.."] -- "..get_mgd_obj_name(o_tbl.elements[1]))) or td_name:match("<(.+)>") 
@@ -4427,7 +4427,7 @@ get_mgd_obj_name = function(m_obj, o_tbl, idx, only_relevant, skip_if_fail)
 		name = name or (o_tbl.name_full and o_tbl.name_full:gsub("%[%]", "")) or td_name:gsub("%[%]", "")
 	elseif o_tbl.skeleton then
 		name = o_tbl.skeleton[idx]
-	elseif (type(m_obj) == "number") or (type(m_obj) == "boolean") or not can_index(m_obj) then
+	elseif (type(m_obj) == "number") or (type(m_obj) == "boolean") or not Utils.can_index(m_obj) then
 		name = typedef:get_name()
 	elseif indexable and (m_obj.x or m_obj.__is_mat4) then
 		pcall(function()
@@ -4627,7 +4627,7 @@ local VarData = {
 		o.value = o.value_org
 		
 		if example ~= nil then --need one example before can start updating
-			o.can_index = can_index(example)
+			o.can_index = Utils.can_index(example)
 			o.is_lua_type = is_lua_type(o.ret_type, example) --or type(example)=="boolean"
 			o.is_vt = not o.is_lua_type and (not not (tostring(example):find("::ValueType"))) or o.is_vt
 			o.is_obj = (not o.is_lua_type and (not o.is_vt and sdk.is_managed_object(example))) or nil
@@ -4704,7 +4704,7 @@ local VarData = {
 							end
 							if not pcall(function()
 								key = (type(key)=="string" and key) or (type(key)=="userdata" and ((key.get_Name and key:get_Name()) or (key.ToString and key:ToString())) or tostring(key))
-							end) and can_index(key) and key.type then 
+							end) and Utils.can_index(key) and key.type then 
 								key = key.type:get_fields()[1]:get_data(key)
 							end
 							if not pcall(function() key = key .. "" end) then 
@@ -4729,7 +4729,7 @@ local VarData = {
 				o_tbl.item_type = sdk.find_type_definition(o.ret_type:get_full_name():gsub("%[%]", ""))
 				o_tbl.elements, o_tbl.element_names, o_tbl.item_data = {}, {}, {}
 				for i, element in ipairs(lua_get_system_array(o.value_org, true)) do --
-					if not can_index(element) then
+					if not Utils.can_index(element) then
 						o_tbl.elements[i] = element
 						o_tbl.element_names[i] = logv(element)
 					else
@@ -4840,7 +4840,7 @@ local VarData = {
 	update_prop = function(self, o_tbl, idx, forced_update)
 		local obj = o_tbl.obj
 		local is_obj = self.is_obj or self.is_vt
-		if is_obj and self.cvalue and not o_tbl.is_folder and random(25) then --set owner
+		if is_obj and self.cvalue and not o_tbl.is_folder and Utils.random(25) then --set owner
 			if not pcall(function() 
 				if self.element_names then
 					for i, cv in ipairs(self.cvalue) do 
@@ -4873,7 +4873,7 @@ local VarData = {
 				should_update_cvalue = should_update_cvalue or (#self.value ~= #self.cvalue)
 				self.mysize = self.mysize or (self.count and self.count:call(obj)) or (o_tbl.counts and o_tbl.counts.method and o_tbl.counts.method:call(obj)) or 0
 				self.mysize = (type(self.mysize)=="number") and self.mysize or 0
-				if should_update_cvalue and (self.mysize < 25) or random(3) then
+				if should_update_cvalue and (self.mysize < 25) or Utils.random(3) then
 					if o_tbl.item_type and self.ret_type:get_full_name() == "System.Object" then --fix props with generic System.Object types if the parent MgdObj has the real ret type
 						self.ret_type = o_tbl.item_type
 						self.name_methods = get_name_methods(self.ret_type)
@@ -4919,7 +4919,7 @@ local REMgdObj = {
 	
 	__new = function(self, obj, used_props, o) 
 		
-		if not obj or type(obj) == "number" or not can_index(obj) or not obj.get_type_definition then
+		if not obj or type(obj) == "number" or not Utils.can_index(obj) or not obj.get_type_definition then
 			print("REMgdObj Failed step 1")
 			return nil
 		end
@@ -5755,7 +5755,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 			tbl = tbl[prop.name]
 		end
 		if not tbl.prototype then 
-			local ret_type = (can_index(value) and value.get_type_definition and value:get_type_definition()) or o_tbl.item_type
+			local ret_type = (Utils.can_index(value) and value.get_type_definition and value:get_type_definition()) or o_tbl.item_type
 			tbl.prototype = (ret_type and VarData:new{
 				o_tbl=o_tbl or vd,
 				value=value,
@@ -5952,7 +5952,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		.. ", " .. (tostring(({pcall(sdk.is_managed_object, value)})[2] == true)))]]
 		imgui.text_colored(tostring((value and value.get_type_definition and value:get_type_definition():get_full_name()) or ""), 0xFF0000FF)
 		if value ~= nil and vd.value_org == nil then
-			local ret_type = (can_index(value) and value.get_type_definition and value:get_type_definition()) or o_tbl.item_type or return_type
+			local ret_type = (Utils.can_index(value) and value.get_type_definition and value:get_type_definition()) or o_tbl.item_type or return_type
 			vd.new_self = ret_type and VarData:new{
 				o_tbl=o_tbl,
 				value=value,
@@ -6435,7 +6435,7 @@ local function show_field(managed_object, field, key_name)
 	if changed then
 		local value = value
 		deferred_calls[managed_object] = {vardata=field_data, fn=function()
-			if can_index(value) and value.type and value:get_type_definition():is_value_type() then --fixme
+			if Utils.can_index(value) and value.type and value:get_type_definition():is_value_type() then --fixme
 				--log.debug("writing valuetype " .. tostring(key_name))
 				write_valuetype(managed_object, field:get_offset_from_base(), value)
 			else
@@ -6482,7 +6482,7 @@ local function show_save_load_button(o_tbl, button_type, load_by_name, save_chil
 				changed, o_tbl.show_load_input = imgui.checkbox((type(load_by_name)=="string" and load_by_name) or "Load By Name", o_tbl.show_load_input)
 			end
 			o_tbl.files_list = ((button_only==1) or o_tbl.show_load_input) and (o_tbl.files_list or {paths=fs.glob([[EMV_Engine\\Saved_GameObjects\\.*.json]])}) or nil
-			if changed or (o_tbl.show_load_input and random(60)) then 
+			if changed or (o_tbl.show_load_input and Utils.random(60)) then 
 				o_tbl.files_list = {paths=fs.glob([[EMV_Engine\\Saved_GameObjects\\.*.json]]) or {}}
 			end
 			if (o_tbl.show_load_input or (button_only==1)) and not o_tbl.files_list.names then
@@ -8103,7 +8103,7 @@ local function show_collection()
 			changed, cd.new_g_name = imgui.input_text("Name", cd.new_g_name or "NewObject")
 			changed, cd.new_g_parent_name = imgui.input_text("Parent Name", cd.new_g_parent_name)
 			local try, loaded_parent = pcall(load("return " .. cd.new_g_parent_name))
-			loaded_parent = try and loaded_parent and ((sdk.is_managed_object(loaded_parent) or (can_index(loaded_parent) and loaded_parent.set_parent)) and loaded_parent) or nil
+			loaded_parent = try and loaded_parent and ((sdk.is_managed_object(loaded_parent) or (Utils.can_index(loaded_parent) and loaded_parent.set_parent)) and loaded_parent) or nil
 			cd.new_args.parent = (loaded_parent and loaded_parent.xform) or loaded_parent
 			local gameobj_parent = (cd.new_g_parent_name and scene:call("findGameObject(System.String)", cd.new_g_parent_name))
 			cd.new_args.parent = cd.new_args.parent or gameobj_parent and gameobj_parent:call("get_Transform")
@@ -10727,7 +10727,7 @@ re.on_frame(function()
 		end
 	end
 	
-	if random(60) then
+	if Utils.random(60) then
 		for key, tbl in pairs(G_ordered) do
 			if not tbl.open or (uptime > tbl.open + 30) then
 				G_ordered[key] = nil --periodically purge old table metadatas
@@ -11033,7 +11033,7 @@ re.on_draw_ui(function()
 		imgui.tree_pop()
 	end
 	
-	if special_changed or (SettingsCache.load_settings and (csetting_was_changed or random(255))) then
+	if special_changed or (SettingsCache.load_settings and (csetting_was_changed or Utils.random(255))) then
 		special_changed = nil
 		dump_settings()
 	end
@@ -11061,7 +11061,7 @@ EMV = {
 	bool_to_number = bool_to_number,
 	number_to_bool = number_to_bool,
 	random_range = random_range,
-	random = random,
+	random = Utils.random,
 	create_REMgdObj = create_REMgdObj,
 	get_valid = get_valid,
 	is_only_my_ref = is_only_my_ref,
@@ -11073,7 +11073,7 @@ EMV = {
 	merge_tables = merge_tables,
 	deep_copy = deep_copy,
 	insert_if_unique = insert_if_unique,
-	can_index = can_index,
+	can_index = Utils.can_index,
 	jsonify_table = jsonify_table,
 	mouse_state = mouse_state,
 	kb_state = kb_state,
@@ -11172,7 +11172,7 @@ EMV = {
 	is_obj_or_vt = is_obj_or_vt,
 	get_GameObject = get_GameObject,
 	get_fields_and_methods = get_fields_and_methods,
-	nextValue = nextValue,
+	nextValue = Utils.nextValue,
 	get_args = get_args,
 	read_unicode_string = read_unicode_string,
 	edit_obj = edit_obj,
