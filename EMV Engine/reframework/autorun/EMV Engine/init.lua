@@ -307,49 +307,49 @@ end
 -- 	return recurse(tbl, 0)
 -- end
 
---Reverse a table order
-local function reverse_table(t)
-	local new_table = {}
-	for i =  #t, 1, -1 do 
-		table.insert(new_table, t[i])
-	end
-	return new_table
-end
+-- --Reverse a table order
+-- local function reverse_table(t)
+-- 	local new_table = {}
+-- 	for i =  #t, 1, -1 do 
+-- 		table.insert(new_table, t[i])
+-- 	end
+-- 	return new_table
+-- end
 
 --Find the index of a value in an array
-local function find_index(tbl, value, key)
-	if key ~= nil then 
-		for i, item in ipairs(tbl) do
-			if item[key] == value then
-				return i
-			end
-		end
-	else
-		for i, item in ipairs(tbl) do
-			if item == value then
-				return i
-			end
-		end
-	end
-end
+-- local function find_index(tbl, value, key)
+-- 	if key ~= nil then 
+-- 		for i, item in ipairs(tbl) do
+-- 			if item[key] == value then
+-- 				return i
+-- 			end
+-- 		end
+-- 	else
+-- 		for i, item in ipairs(tbl) do
+-- 			if item == value then
+-- 				return i
+-- 			end
+-- 		end
+-- 	end
+-- end
 
---Check if a name is not unique in a table, and add a number to it if its not
-local function resolve_duplicate_names(names_table, name, key)
-	if key then 
-		local new_names_tbl = {}
-		for k, v in pairs(names_table) do 
-			new_names_tbl[v[key]] = true
-		end
-		names_table = new_names_tbl
-	end
-	local ctr = 0
-	local new_name = name
-	while names_table[new_name] do 
-		ctr = ctr + 1
-		new_name = name .. " (" .. string.format("%01d", ctr) .. ")"
-	end
-	return new_name
-end
+-- --Check if a name is not unique in a table, and add a number to it if its not
+-- local function resolve_duplicate_names(names_table, name, key)
+-- 	if key then 
+-- 		local new_names_tbl = {}
+-- 		for k, v in pairs(names_table) do 
+-- 			new_names_tbl[v[key]] = true
+-- 		end
+-- 		names_table = new_names_tbl
+-- 	end
+-- 	local ctr = 0
+-- 	local new_name = name
+-- 	while names_table[new_name] do 
+-- 		ctr = ctr + 1
+-- 		new_name = name .. " (" .. string.format("%01d", ctr) .. ")"
+-- 	end
+-- 	return new_name
+-- end
 
 --[[
 -- Run in the console to detect when any component on "player" has been enabled or disabled:
@@ -363,43 +363,43 @@ enableds = enableds
 ]]
 
 --Sort any table by a given key
-local function qsort(tbl, key, ascending)
-	if type(tbl)~="table" then return end
-	local testkey, test = next(tbl)
-	if test and test[key]~=nil then
-		local arrayOutput = not Utils.isArray(tbl) and {}
-		if arrayOutput then 
-			for key, value in pairs(tbl) do
-				local copy = Utils.merge_tables({__key=key}, value)
-				table.insert(arrayOutput, copy)
-			end
-			tbl = arrayOutput
-		end
-		if ascending then
-			if type(tbl[1][key]) == "table" then 
-				if Utils.isArray(tbl[1][key]) then
-					table.sort (tbl, function (obj1, obj2) return #obj1[key] < #obj2[key]  end)
-				else
-					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) < Utils.get_table_size(obj2[key]) end)
-				end
-			else
-				table.sort (tbl, function (obj1, obj2) return obj1[key] < obj2[key] end)
-			end
-		else
-			if type(test[key]) == "table" then 
-				if Utils.isArray(test[key]) then 
-					table.sort (tbl, function (obj1, obj2) return #obj1[key] > #obj2[key]  end)
-				else
-					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) > Utils.get_table_size(obj2[key]) end)
-				end
-			else
-				table.sort (tbl, function (obj1, obj2) return obj1[key] > obj2[key] end)
-			end
-		end
-		return tbl
-	end
-	return tbl, false
-end
+-- local function qsort(tbl, key, ascending)
+-- 	if type(tbl)~="table" then return end
+-- 	local testkey, test = next(tbl)
+-- 	if test and test[key]~=nil then
+-- 		local arrayOutput = not Utils.isArray(tbl) and {}
+-- 		if arrayOutput then 
+-- 			for key, value in pairs(tbl) do
+-- 				local copy = Utils.merge_tables({__key=key}, value)
+-- 				table.insert(arrayOutput, copy)
+-- 			end
+-- 			tbl = arrayOutput
+-- 		end
+-- 		if ascending then
+-- 			if type(tbl[1][key]) == "table" then 
+-- 				if Utils.isArray(tbl[1][key]) then
+-- 					table.sort (tbl, function (obj1, obj2) return #obj1[key] < #obj2[key]  end)
+-- 				else
+-- 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) < Utils.get_table_size(obj2[key]) end)
+-- 				end
+-- 			else
+-- 				table.sort (tbl, function (obj1, obj2) return obj1[key] < obj2[key] end)
+-- 			end
+-- 		else
+-- 			if type(test[key]) == "table" then 
+-- 				if Utils.isArray(test[key]) then 
+-- 					table.sort (tbl, function (obj1, obj2) return #obj1[key] > #obj2[key]  end)
+-- 				else
+-- 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) > Utils.get_table_size(obj2[key]) end)
+-- 				end
+-- 			else
+-- 				table.sort (tbl, function (obj1, obj2) return obj1[key] > obj2[key] end)
+-- 			end
+-- 		end
+-- 		return tbl
+-- 	end
+-- 	return tbl, false
+-- end
 
 --orderedPairs for sorting keys alphabetically ----------------------------------------------------------------------------------------------------
 local function cmp_multitype(op1, op2)
@@ -484,26 +484,26 @@ end
 
 --Split strings into parts --------------------------------------------------------------------------------------------------------------
 --Greedy split method 1
-local function split(str, separator, in_half)
-	local t = {}
-	for split_str in string.gmatch(str, "([^" .. separator .. "]" .. "+" .. ")") do
-		table.insert(t, split_str)
-		if in_half then 
-			table.insert(t, str:sub(split_str:len()+1, -1))
-			break 
-		end
-	end
-	return t
-end
+-- local function split(str, separator, in_half)
+-- 	local t = {}
+-- 	for split_str in string.gmatch(str, "([^" .. separator .. "]" .. "+" .. ")") do
+-- 		table.insert(t, split_str)
+-- 		if in_half then 
+-- 			table.insert(t, str:sub(split_str:len()+1, -1))
+-- 			break 
+-- 		end
+-- 	end
+-- 	return t
+-- end
 
 --Lazy split method 2
-local function Split(s, delimiter)
-	result = {}
-	for match in (s..delimiter):gmatch("(.-)"..delimiter) do
-		table.insert(result, match)
-	end
-	return result
-end
+-- local function Split(s, delimiter)
+-- 	result = {}
+-- 	for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+-- 		table.insert(result, match)
+-- 	end
+-- 	return result
+-- end
 
 --Search transforms utilities and console functions -------------------------------------------------------------------------------------------------------------
 local function find(typedef_name, as_components) --find components by type, returned as via.Transforms
@@ -2343,7 +2343,7 @@ end
 local function save_json_gameobject(anim_object, return_merged_tables, single_component)
 	
 	local filename, output = anim_object.name_w_parent:match("^(.+) %(") or anim_object.name_w_parent
-	local splitted = split(filename, "%.")
+	local splitted = Utils.greedy_split(filename, "%.")
 	local parent_name = splitted[#splitted-1]
 	local gameobj_name = anim_object.gameobj:call("get_Name()")
 	filename = (parent_name and parent_name .. "." or "") .. gameobj_name
@@ -2388,7 +2388,7 @@ local function load_json_game_object(anim_object, set_props, single_component, g
 	given_name = given_name or (anim_object and anim_object.name_w_parent)
 	if given_name then
 		given_name = given_name:match("^(.+) %(") or given_name --remove dmc5 names
-		local splitted = split(given_name, "%.")
+		local splitted = Utils.greedy_split(given_name, "%.")
 		local parent_name = splitted[#splitted-1]
 		local gameobj_name = anim_object.gameobj:call("get_Name")
 		given_name = (parent_name and parent_name .. "." or "") .. gameobj_name
@@ -2501,7 +2501,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 			
 			elseif go_back_to_table and not dont_convert and (splittable or (tbl.__component_name or tbl.__address)) then -- or str_prefix == "obj:" 
 				
-				local splitted = splittable and split(value:sub(5,-1), " ") or nil
+				local splitted = splittable and Utils.greedy_split(value:sub(5,-1), " ") or nil
 				if str_prefix == "res:" then 
 					--if dont_create_resources then
 					--	new_tbl[key] = value
@@ -3028,7 +3028,7 @@ local function add_resource_to_cache(resource_holder, paired_resource_holder, da
 		resource_holder = resource_holder:add_ref()
 		_G.resource_added = true
 	else
-		current_idx = find_index(RN[rn_name], resource_path)
+		current_idx = Utils.find_index(RN[rn_name], resource_path)
 	end
 	return current_idx, resource_path, ext
 end
@@ -3246,7 +3246,7 @@ local function create_gameobj(name, component_names, args, dont_rename)
 				local glob = fs.glob([[EMV_Engine\\Saved_GameObjects\\.*.json]])
 				for i, child_name in ipairs(file_tbl.__children) do 
 					
-					local child_file = find_index(glob, "EMV_Engine\\Saved_GameObjects\\" .. name .. "." .. child_name .. ".json") and json.load_file("EMV_Engine\\Saved_GameObjects\\" .. name .. "." .. child_name .. ".json")
+					local child_file = Utils.find_index(glob, "EMV_Engine\\Saved_GameObjects\\" .. name .. "." .. child_name .. ".json") and json.load_file("EMV_Engine\\Saved_GameObjects\\" .. name .. "." .. child_name .. ".json")
 					if child_file and child_file[child_name] then 
 						--re.msg("Loaded Child EMV_Engine\\Saved_GameObjects\\" .. name .. "." .. child_name .. ".json")
 						local child_components_ord = child_file[child_name].__components_order
@@ -5391,7 +5391,7 @@ local function show_imgui_text_box(display_name, value, o_tbl, can_set, tkey, is
 		if string.find(str_name, "\n") then
 			
 			local cached_fields = o_tbl.cached_fields or {}
-			split_lines = split(o_tbl.cached_text[tkey], "\n")
+			split_lines = Utils.greedy_split(o_tbl.cached_text[tkey], "\n")
 			cached_fields[tkey] = cached_fields[tkey] or 1 --idx of the current line
 			was_changed, split_lines[ cached_fields[tkey] ] = imgui.input_text(display_name, split_lines[ cached_fields[tkey] ] )
 			imgui.same_line()
@@ -5603,7 +5603,7 @@ local function imgui_chain_settings(via_chain, xform, game_object_name)
 					cached_chain_settings_names[via_chain] = cached_chain_settings_names[via_chain] or {}
 					for j, grp in ipairs(chain_groups) do 
 						Utils.insert_if_unique(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
-						grp.setting_idx = find_index(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
+						grp.setting_idx = Utils.find_index(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
 						grp.blend_idx = grp.setting_idx
 						grp:change_custom_setting()
 					end
@@ -5875,7 +5875,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 			imgui.tree_pop()
 		else
 			if prop and not vd.is_vt and not is_valid_obj(value) then
-				local idx = find_index(o_tbl.props, prop)
+				local idx = Utils.find_index(o_tbl.props, prop)
 			--	if idx then table.remove(o_tbl.props, idx) end --its broken
 			elseif vd.is_static then
 				imgui.same_line()
@@ -6125,7 +6125,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 						local obj_changed
 						vd.pfb_path = vd.pfb_path or value:call("get_Path")
 						vd.pfb_idx = not changed and vd.pfb_idx
-						obj_changed, vd.pfb_idx = imgui.combo("Change Prefab", vd.pfb_idx or find_index(RN.pfb_resource_names, vd.pfb_path) or 1, RN.pfb_resource_names)
+						obj_changed, vd.pfb_idx = imgui.combo("Change Prefab", vd.pfb_idx or Utils.find_index(RN.pfb_resource_names, vd.pfb_path) or 1, RN.pfb_resource_names)
 						if obj_changed then 
 							changed = true
 							value = RSCache.pfb_resources[ RN.pfb_resource_names[vd.pfb_idx] ]
@@ -7110,7 +7110,7 @@ local Material = {
 			self.multi[v] = self.multi[v] or {}
 			changed, self.multi[v].do_multi = imgui.checkbox("Change Multiple", self.multi[v].do_multi)
 			
-			if self.is_cmd and ((var_name:find("Customize") and var_name ~= "CustomizeColor_BlendSwitch") or (UserFile and find_index(UserFile.sf6_cmd_param_names, var_name))) then
+			if self.is_cmd and ((var_name:find("Customize") and var_name ~= "CustomizeColor_BlendSwitch") or (UserFile and Utils.find_index(UserFile.sf6_cmd_param_names, var_name))) then
 				imgui.same_line()
 				imgui.text_colored("CMD", 0xFFAAFFFF)
 			end
@@ -7138,7 +7138,7 @@ local Material = {
 				self.multi[v].search_terms[1] = self.multi[v].search_terms[1] or self.multi[v].search_term
 				if changed then
 					self.last_search_terms = self.multi[v].search_term
-					self.multi[v].search_terms  = split(self.multi[v].search_term, " ") or table.pack(self.multi[v].search_term)
+					self.multi[v].search_terms  = Utils.greedy_split(self.multi[v].search_term, " ") or table.pack(self.multi[v].search_term)
 				end
 			end
 		imgui.end_rect(3)
@@ -7373,7 +7373,7 @@ show_imgui_mats = function(anim_object)
 				anim_object:set_materials()
 			end
 			if saved_mats[anim_object.name_w_parent].swap_mesh and not imgui.same_line() then
-				anim_object.mat_data.swap_idx = anim_object.mat_data.swap_idx or find_index(anim_object.mat_data.swappables, anim_object.mat_data.current_swap_name)
+				anim_object.mat_data.swap_idx = anim_object.mat_data.swap_idx or Utils.find_index(anim_object.mat_data.swappables, anim_object.mat_data.current_swap_name)
 				changed, anim_object.mat_data.swap_idx = imgui.combo("Mesh Swap", anim_object.mat_data.swap_idx, anim_object.mat_data.swappables)
 				if changed then 
 					local current_file =  json.load_file(saved_mats.files[ saved_mats.names_map[anim_object.name_w_parent] ])
@@ -7397,7 +7397,7 @@ show_imgui_mats = function(anim_object)
 	
 	if RN.mesh_resource_names then
 		anim_object.mpaths = anim_object.mpaths or {}
-		changed, anim_object.current_mesh_idx = imgui.combo("Change Mesh: " .. anim_object.name, find_index(RN.mesh_resource_names, anim_object.mpaths.mesh_path) or anim_object.current_mesh_idx, RN.mesh_resource_names)
+		changed, anim_object.current_mesh_idx = imgui.combo("Change Mesh: " .. anim_object.name, Utils.find_index(RN.mesh_resource_names, anim_object.mpaths.mesh_path) or anim_object.current_mesh_idx, RN.mesh_resource_names)
 		if changed then 
 			local m_r_name = RN.mesh_resource_names[ anim_object.current_mesh_idx]
 			if type(RSCache.mesh_resources[m_r_name][1]=="string") then 
@@ -7417,7 +7417,7 @@ show_imgui_mats = function(anim_object)
 			anim_object:set_materials() 
 		end
 		
-		changed, anim_object.current_mdf_idx = imgui.combo("Change Materials: " .. anim_object.name, find_index(RN.mdf2_resource_names, anim_object.mpaths.mdf2_path) or anim_object.current_mdf_idx, RN.mdf2_resource_names)
+		changed, anim_object.current_mdf_idx = imgui.combo("Change Materials: " .. anim_object.name, Utils.find_index(RN.mdf2_resource_names, anim_object.mpaths.mdf2_path) or anim_object.current_mdf_idx, RN.mdf2_resource_names)
 		if changed then 
 			add_resource_to_cache(RSCache.mdf2_resources[ RN.mdf2_resource_names[anim_object.current_mdf_idx] ])
 			anim_object.mesh:call("set_Material", RSCache.mdf2_resources[ RN.mdf2_resource_names[anim_object.current_mdf_idx] ])
@@ -8087,7 +8087,7 @@ local function show_collection()
 						imgui.begin_rect()
 							local tmp = cd.new_args.mesh
 							if RN.mesh_resource_names then
-								changed, cd.current_mesh_idx = imgui.combo("Select Mesh", cd.current_mesh_idx or find_index(RN.mesh_resource_names, cd.new_args.mesh or "") or 1, RN.mesh_resource_names)
+								changed, cd.current_mesh_idx = imgui.combo("Select Mesh", cd.current_mesh_idx or Utils.find_index(RN.mesh_resource_names, cd.new_args.mesh or "") or 1, RN.mesh_resource_names)
 								if changed then 
 									cd.new_args.mesh = RN.mesh_resource_names[cd.current_mesh_idx]
 									local mdf = RSCache.mesh_resources and RSCache.mesh_resources[RN.mesh_resource_names[cd.current_mesh_idx]]
@@ -8113,7 +8113,7 @@ local function show_collection()
 					--cd.new_args.name =  cd.new_args.given_name and cd.new_args.given_name:match("^.+%.(.-)$") or cd.new_args.given_name
 					--cd.new_args.name = cd.new_args.name and cd.new_args.name:match("^(.+) %(") or cd.new_args.name
 					cd.new_g_name = cd.new_args.name
-					cd.new_g_parent_name = split(cd.new_args.given_name, "%.")
+					cd.new_g_parent_name = Utils.greedy_split(cd.new_args.given_name, "%.")
 					cd.new_g_parent_name = (cd.new_g_parent_name and cd.new_g_parent_name[#cd.new_g_parent_name-1]) 
 					or (file[cd.new_args.name].Transform and file[cd.new_args.name].Transform._Parent and file[cd.new_args.name].Transform._Parent.__gameobj_name)
 					cd.new_args.file = file 
@@ -8542,7 +8542,7 @@ BHVT = {
 				
 				if self.names_indexed and self.names_indexed[1] then 
 					
-					self.current_name_idx = find_index(self.names_indexed, node_name) or self.current_name_idx
+					self.current_name_idx = Utils.find_index(self.names_indexed, node_name) or self.current_name_idx
 					
 					if changed then
 						self.obj:call("set_PuppetMode", self.puppet_mode)
@@ -8727,14 +8727,14 @@ BHVT = {
 			CachedActions[self.object.name][self.name] = CachedActions[self.object.name][self.name] or {}
 			CachedActions[self.object.name][self.name][node_name] = CachedActions[self.object.name][self.name][node_name] or 1
 			self.names = CachedActions[self.object.name][self.name]
-			self.current_name_idx =  self.current_name_idx or (self.names_indexed and find_index(self.names_indexed, node_name)) --or self.current_name_idx
+			self.current_name_idx =  self.current_name_idx or (self.names_indexed and Utils.find_index(self.names_indexed, node_name)) --or self.current_name_idx
 			if not self.names[node_name] or not self.names_indexed or not self.current_name_idx or (Utils.get_table_size(self.names) ~= #self.names_indexed) then --
 				self.names[node_name] = true
 				self.names_indexed =  {}
 				for name, idx in orderedPairs(self.names) do
 					table.insert(self.names_indexed, name)
 				end
-				self.current_name_idx =  find_index(self.names_indexed, node_name)
+				self.current_name_idx =  Utils.find_index(self.names_indexed, node_name)
 				--self:set_total_nodes()
 			end
 		end
@@ -8879,8 +8879,8 @@ GameObject = {
 		if isDMC and SettingsCache.add_DMC5_names then 
 			local possible_names = {o.mesh_name, o.key_name}
 			for s, possible_name in ipairs(possible_names) do
-				for i, part in ipairs(split(possible_name, "/")) do 
-					local sub_tbl = split(part, "_")
+				for i, part in ipairs(Utils.greedy_split(possible_name, "/")) do 
+					local sub_tbl = Utils.greedy_split(part, "_")
 					for j, sub_part in ipairs(sub_tbl or {}) do
 						if sub_part:find("[ep][ml]%d%d")==1 and #sub_tbl > 1 and not sub_tbl[#sub_tbl]:find("%.") and not (sub_tbl[#sub_tbl]:find("ev")==1) then --and sub_tbl[#sub_tbl]~="ev" and sub_tbl[#sub_tbl]~="ev01"
 							o.char_name = sub_tbl[#sub_tbl]
@@ -9062,14 +9062,14 @@ GameObject = {
 				table.insert(poser.slot_names, name)
 				poser.slots[name] = tbl
 			end
-			poser.current_slot_idx = find_index(poser.slot_names, poser.save_name) or poser.current_slot_idx
+			poser.current_slot_idx = Utils.find_index(poser.slot_names, poser.save_name) or poser.current_slot_idx
 			poser.save_name = ""
 			poser.paths=fs.glob([[EMV_Engine\\Poses\\.*.json]])
 			poser.names = {}
 			for i, filepath in ipairs(poser.paths) do 
 				table.insert(poser.names, filepath:match("^.+\\(.+)%."))
 			end
-			poser.current_object_idx = find_index(poser.names, poser.current_name) or Utils.binsert(poser.names, poser.current_name)
+			poser.current_object_idx = Utils.find_index(poser.names, poser.current_name) or Utils.binsert(poser.names, poser.current_name)
 		end
 		
 		if imgui.tree_node("[Lua]") then
@@ -9194,11 +9194,11 @@ GameObject = {
 					local saved_joint = pose[joint:get_Name()]
 					if saved_joint then 
 						for key, value in pairs(saved_joint) do 
-							local prop_idx = find_index(poser.prop_names, key)
+							local prop_idx = Utils.find_index(poser.prop_names, key)
 							local undo_tbl = poser.undo[prop_idx]
 							if ((poser.load_all and (poser.load_scales or (key ~= "_LocalScale"))) or key == poser.prop_name) and (not poser.load_to_selected or (undo[joint] and undo[joint].selected_to_load)) and type(value)=="string" then 
 								fj[joint] = fj[joint] or {false, false, false}
-								local splitted = split(value:sub(5,-1), " ")
+								local splitted = Utils.greedy_split(value:sub(5,-1), " ")
 								if #splitted == 3 then 
 									fj[joint][prop_idx] = Vector3f.new(table.unpack(splitted))
 									table.insert(undo_tbl.last, joint) 
@@ -9259,7 +9259,7 @@ GameObject = {
 		
 		if changed or not poser.searched_joints or changed_alphanumeric then 
 			
-			search_terms = split(poser.search_text:lower(), " ")
+			search_terms = Utils.greedy_split(poser.search_text:lower(), " ")
 			search_terms[1] = search_terms[1] or ""
 			
 			poser.all_joints = {}
@@ -11044,7 +11044,7 @@ EMV = {
 	lua_get_components = lua_get_components,
 	lua_get_enumerator = lua_get_enumerator,
 	lua_get_system_array = lua_get_system_array,
-	reverse_table = reverse_table,
+	reverse_table = Utils.reverse_table,
 	clamp = clamp,
 	smoothstep = smoothstep,
 	generate_statics = generate_statics,
@@ -11090,8 +11090,8 @@ EMV = {
 	find = find,
 	findc = findc,
 	findtdm = findtdm,
-	find_index = find_index,
-	qsort = qsort,
+	find_index = Utils.find_index,
+	qsort = Utils.qsort,
 	read_imgui_pairs_table = read_imgui_pairs_table,
 	read_imgui_element = read_imgui_element,
 	get_first_gameobj = get_first_gameobj,

@@ -325,7 +325,7 @@ function M.create(deps)
     -- String Utilities ----------------------------------------------------------------------
 
     --- Splits a string into parts using a greedy pattern.
-    function exports.split(str, separator, in_half)
+    function exports.greedy_split(str, separator, in_half)
         local t = {}
         for split_str in string.gmatch(str, "([^" .. separator .. "]" .. "+" .. ")") do
             table.insert(t, split_str)
@@ -338,7 +338,7 @@ function M.create(deps)
     end
 
     --- Splits a string into parts using a lazy pattern.
-    function exports.Split(s, delimiter)
+    function exports.lazy_split(s, delimiter)
         local result = {}
         for match in (s .. delimiter):gmatch("(.-)" .. delimiter) do
             table.insert(result, match)
