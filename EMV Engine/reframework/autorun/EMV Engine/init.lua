@@ -318,36 +318,36 @@ end
 -- end
 
 --Merge ordered lists
-local function merge_indexed_tables(table_a, table_b, is_vec, no_dupes)
-	table_a = table_a or {}
-	table_b = table_b or {}
-	local insert_method = no_dupes and table.insert or Utils.insert_if_unique
-	if is_vec then 
-		local new_tbl = {} 
-		for i, value_a in ipairs(table_a) do insert_method(new_tbl, value_a) end
-		for i, value_b in ipairs(table_b) do insert_method(new_tbl, value_b) end
-		return new_tbl
-	else
-		for i, value_b in ipairs(table_b) do insert_method(table_a, value_b) end
-		return table_a
-	end
-end
+-- local function merge_indexed_tables(table_a, table_b, is_vec, no_dupes)
+-- 	table_a = table_a or {}
+-- 	table_b = table_b or {}
+-- 	local insert_method = no_dupes and table.insert or Utils.insert_if_unique
+-- 	if is_vec then 
+-- 		local new_tbl = {} 
+-- 		for i, value_a in ipairs(table_a) do insert_method(new_tbl, value_a) end
+-- 		for i, value_b in ipairs(table_b) do insert_method(new_tbl, value_b) end
+-- 		return new_tbl
+-- 	else
+-- 		for i, value_b in ipairs(table_b) do insert_method(table_a, value_b) end
+-- 		return table_a
+-- 	end
+-- end
 
 --Merge hashed dictionaries. table_b will be merged into table_a
-local function merge_tables(table_a, table_b, no_overwrite)
-	table_a = table_a or {}
-	table_b = table_b or {}
-	if no_overwrite then 
-		for key_b, value_b in pairs(table_b) do 
-			if table_a[key_b] == nil then
-				table_a[key_b] = value_b 
-			end
-		end
-	else
-		for key_b, value_b in pairs(table_b) do table_a[key_b] = value_b end
-	end
-	return table_a
-end
+-- local function merge_tables(table_a, table_b, no_overwrite)
+-- 	table_a = table_a or {}
+-- 	table_b = table_b or {}
+-- 	if no_overwrite then 
+-- 		for key_b, value_b in pairs(table_b) do 
+-- 			if table_a[key_b] == nil then
+-- 				table_a[key_b] = value_b 
+-- 			end
+-- 		end
+-- 	else
+-- 		for key_b, value_b in pairs(table_b) do table_a[key_b] = value_b end
+-- 	end
+-- 	return table_a
+-- end
 
 local function deep_copy(tbl, max_layers)
 	local loops, loops2 = {}, {}
@@ -356,7 +356,7 @@ local function deep_copy(tbl, max_layers)
 		for key, value in pairs(sub_tbl or {}) do
 			if (not max_layers or layer <= max_layers) and type(value) == "table" then
 				if not loops[value] then
-					loops[value] = merge_tables({}, value)
+					loops[value] = Utils.merge_tables({}, value)
 					loops[value] = recurse(loops[value], layer+1) 
 				end
 				new_tbl[key] = loops[value]
@@ -433,7 +433,7 @@ local function qsort(tbl, key, ascending)
 		local arrayOutput = not Utils.isArray(tbl) and {}
 		if arrayOutput then 
 			for key, value in pairs(tbl) do
-				local copy = merge_tables({__key=key}, value)
+				local copy = Utils.merge_tables({__key=key}, value)
 				table.insert(arrayOutput, copy)
 			end
 			tbl = arrayOutput
@@ -1837,7 +1837,7 @@ local function show_hotkey_setter(button_txt, imgui_keyname, deferred_call, dfc_
 				hk_tbl = Hotkey:new({button_txt=button_txt, imgui_keyname=imgui_keyname, key_id=key_id, key_name=key_name, dfcall=deferred_call, obj=deferred_call.obj, dfcall_json=dfcall_json})
 				if deferred_call then
 					if dfc_args ~= nil and deferred_call.args == nil then
-						hk_tbl.dfcall = merge_tables({args=((type(dfc_args)~="table") and {dfc_args} or dfc_args)}, deferred_call, true) --make a unique copy of the deferred call with the given args
+						hk_tbl.dfcall = Utils.merge_tables({args=((type(dfc_args)~="table") and {dfc_args} or dfc_args)}, deferred_call, true) --make a unique copy of the deferred call with the given args
 					end
 					hk_tbl.dfcall = hk_tbl.dfcall or deferred_call
 				end
@@ -1881,7 +1881,7 @@ function imgui.button_w_hotkey(button_txt, imgui_keyname, deferred_call, dfc_arg
 			local seq = deferred_call.obj.sequencer or MoveSequencer:new{tree=deferred_call.obj}
 			if seq then 
 				if deferred_call.args == nil then
-					deferred_call = merge_tables({args=((type(dfc_args)~="table") and {dfc_args} or dfc_args)}, deferred_call, true) --make a unique copy of the deferred call with the given args
+					deferred_call = Utils.merge_tables({args=((type(dfc_args)~="table") and {dfc_args} or dfc_args)}, deferred_call, true) --make a unique copy of the deferred call with the given args
 				end
 				seq.Hotkeys[imgui_keyname] = Hotkey:new({button_txt=button_txt, imgui_keyname=imgui_keyname, dfcall=deferred_call, obj=deferred_call.obj, dfcall_json=dfcall_json}, seq.Hotkeys[imgui_keyname])
 				seq.movedata[imgui_keyname] = seq.movedata[imgui_keyname] or {}
@@ -1983,7 +1983,7 @@ Hotkey = {
 					end
 				end
 			end
-			local dfcall = merge_tables({}, self.dfcall) --make a copy
+			local dfcall = Utils.merge_tables({}, self.dfcall) --make a copy
 			if do_deferred then
 				deferred_calls[self.obj or scene] = dfcall
 			else
@@ -2394,7 +2394,7 @@ obj_to_json = function(obj, do_only_metadata, args, doForce)
 		j_tbl.__is_vt = is_vt
 		
 		if args then 
-			j_tbl = merge_tables(j_tbl, args)
+			j_tbl = Utils.merge_tables(j_tbl, args)
 		end
 		if do_only_metadata or (used_fields and (next(used_fields)~=nil)) then
 			return j_tbl
@@ -2415,9 +2415,9 @@ local function save_json_gameobject(anim_object, return_merged_tables, single_co
 		local old_file = json.load_file("EMV_Engine\\Saved_GameObjects\\" .. filename .. ".json") or {}
 		local raw_tbl = {[single_component]=anim_object.components_named[single_component] or anim_object.gameobj}
 		local file_style = jsonify_table(raw_tbl, false, {max_level=1})
-		output = {[gameobj_name] = merge_tables(old_file[gameobj_name], file_style)}
+		output = {[gameobj_name] = Utils.merge_tables(old_file[gameobj_name], file_style)}
 	else
-		output = { [gameobj_name] = merge_tables(anim_object.components_named, {["GameObject"]=anim_object.gameobj} ) }
+		output = { [gameobj_name] = Utils.merge_tables(anim_object.components_named, {["GameObject"]=anim_object.gameobj} ) }
 	end
 	
 	if output[gameobj_name] then 
@@ -4652,7 +4652,7 @@ local VarData = {
 			local odc_key = logv(obj) .. " " .. o.name
 			o.freeze = old_deferred_calls[odc_key] and old_deferred_calls[odc_key].vardata and old_deferred_calls[odc_key].vardata.freeze or nil -- and old_deferred_calls[odc_key].vardata
 			if o.freeze then 
-				o = merge_tables(old_deferred_calls[odc_key].vardata, o)
+				o = Utils.merge_tables(old_deferred_calls[odc_key].vardata, o)
 			end
 			o.had_example = true
 		end
@@ -5766,7 +5766,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 			}) or {}
 		end
 		if not tbl[element_idx] then
-			tbl[element_idx] = merge_tables({}, tbl.prototype)
+			tbl[element_idx] = Utils.merge_tables({}, tbl.prototype)
 			setmetatable(tbl[element_idx], VarData)
 		end
 		vd = tbl[element_idx]
@@ -5795,8 +5795,8 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		if value ~= nil then
 			local enum, value_to_list_order, enum_names = get_enum(return_type)
 			if not value_to_list_order[value] then
-				enum_names = merge_tables({}, enum_names)
-				value_to_list_order = merge_tables({}, value_to_list_order)
+				enum_names = Utils.merge_tables({}, enum_names)
+				value_to_list_order = Utils.merge_tables({}, value_to_list_order)
 				table.insert(enum_names, tostring(value))
 				value_to_list_order[value] = #enum_names
 			end
@@ -6255,7 +6255,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 								vd.new_key = "new = sdk.create_instance(\"" .. vd.item_type:get_full_name() .. "\", true):add_ref();"
 								if vd.value then
 									_data[vd.value] = _data[vd.value] or create_REMgdObj(vd.value)
-									vd.new_arr_elems = merge_indexed_tables({}, _data[vd.value].elements) or {}
+									vd.new_arr_elems = Utils.merge_indexed_tables({}, _data[vd.value].elements) or {}
 								else
 									vd.new_arr_elems = {(is_lua_type(vd.item_type) and 0) or sdk.create_instance(vd.item_type:get_full_name(), true):add_ref()} 
 								end
@@ -7666,7 +7666,7 @@ local function show_collection()
 	cd = SettingsCache.Collection_data
 	
 	cd.recurse = cd.recurse or function(tbl)
-		local new_tbl = merge_tables({}, tbl)
+		local new_tbl = Utils.merge_tables({}, tbl)
 		for k, v in pairs(tbl) do
 			if (SettingsCache.Collection_data.only_set_json_resources and ((type(v)~="string") or (v:sub(1,4)~="res:") or v:lower():find("error")) ) then  --
 				new_tbl[k] = nil
@@ -7699,7 +7699,7 @@ local function show_collection()
 	
 	if imgui.button("Empty Collection") then 
 		--Collection = {}
-		local new_collection = merge_tables({}, Collection)
+		local new_collection = Utils.merge_tables({}, Collection)
 		for k, v in pairs(Collection) do 
 			if not v.xform or not old_deferred_calls[logv(v.xform) .. " 1"] then 
 				new_collection[k] = nil
@@ -7735,25 +7735,25 @@ local function show_collection()
 					must_have[result] = result
 				end
 			end
-			new_collection = merge_tables({}, Collection)
+			new_collection = Utils.merge_tables({}, Collection)
 			merged = cd.search_enemies and search("^[ep][ml]%d%d%d%d" .. (isDMC and "_?%d?%d?"  or "$"), cd.case_sensitive, true) or {}
 			if isRE8 and cd.search_enemies then 
-				merged = merge_tables(merged,  search("^ch%d%d_%d%d%d%d$", cd.case_sensitive, true) or {})
+				merged = Utils.merge_tables(merged,  search("^ch%d%d_%d%d%d%d$", cd.case_sensitive, true) or {})
 			end
 			if cd.enable_component_search then
 				for i, component_name in ipairs(cd.search_for) do
 					if sdk.find_type_definition(component_name) then
-						merged = merge_tables(merged, find(component_name, 1))
+						merged = Utils.merge_tables(merged, find(component_name, 1))
 					end
 				end
 			else
-				merged = merge_tables(merged, must_have)
+				merged = Utils.merge_tables(merged, must_have)
 			end
 			
 			if cd.enable_include_search then 
 				for j, included_name in ipairs(cd.included) do 
 					if included_name ~= "[New]" then
-						merged = merge_tables({}, search(included_name, cd.case_sensitive, true))
+						merged = Utils.merge_tables({}, search(included_name, cd.case_sensitive, true))
 					end
 				end
 			end
@@ -7791,7 +7791,7 @@ local function show_collection()
 				end
 			end
 			
-			Collection = merge_tables(Collection, new_collection)
+			Collection = Utils.merge_tables(Collection, new_collection)
 			dump_collection = true
 		end
 		
@@ -8492,7 +8492,7 @@ BHVT = {
 			local function ctx1()
 				if imgui.begin_popup_context_item(node.obj.id) then
 					if imgui.menu_item("Reload") then
-						merge_tables(node, BHVTNode:new(node))
+						Utils.merge_tables(node, BHVTNode:new(node))
 						array_location_tbl[1][array_location_tbl[2] ] = node
 					end
 					if imgui.menu_item("Assign to 'node'") then
@@ -8659,7 +8659,7 @@ BHVT = {
 
 				
 				if imgui.button("Refresh") then
-					merge_tables(self, BHVT:new{obj=self.obj})
+					Utils.merge_tables(self, BHVT:new{obj=self.obj})
 				end
 				imgui.same_line()
 				
@@ -8962,12 +8962,12 @@ GameObject = {
 		end
 		
 		if (touched_gameobjects[o.xform]) and (touched_gameobjects[o.xform]~=o) then
-			o = merge_tables(o, touched_gameobjects[o.xform], true)
+			o = Utils.merge_tables(o, touched_gameobjects[o.xform], true)
 			touched_gameobjects[o.xform] = o
 		end
 		
 		if (held_transforms[o.xform]) and (held_transforms[o.xform]~=o) then
-			o = merge_tables(o, held_transforms[o.xform], true)
+			o = Utils.merge_tables(o, held_transforms[o.xform], true)
 		end
 		held_transforms[o.xform] = o
 		
@@ -9232,7 +9232,7 @@ GameObject = {
 					end
 				end
 				for name, joint in pairs(pose) do 
-					pose[name] = merge_tables(current_file[save_name] and current_file[save_name][name] or {}, pose[name])
+					pose[name] = Utils.merge_tables(current_file[save_name] and current_file[save_name][name] or {}, pose[name])
 				end
 				current_file[save_name] = pose
 			elseif current_slot_name then
@@ -9335,7 +9335,7 @@ GameObject = {
 				end
 			end 
 			
-			for i, child in ipairs(merge_indexed_tables({self.xform}, self.children) or {}) do
+			for i, child in ipairs(Utils.merge_indexed_tables({self.xform}, self.children) or {}) do
 				if i == 1 or child:get_SameJointsConstraint() then
 					local is_body = ((i == 1) or (get_body_part(child:get_GameObject():get_Name()) == "Body"))
 					for j, joint in ipairs(lua_get_system_array(child:get_Joints(), true)) do 
@@ -10123,7 +10123,7 @@ GameObject = {
 		end
 		for i=1, materials_count do 
 			local new_args = {anim_object=self, id=i-1, do_change_defaults=do_change_defaults}
-			local new_mat = Material:new((args and merge_tables(new_args, args) or new_args))
+			local new_mat = Material:new((args and Utils.merge_tables(new_args, args) or new_args))
 			self.materials.is_cmd = self.materials.is_cmd or new_mat.is_cmd
 			table.insert(self.materials, new_mat)
 		end
@@ -10394,11 +10394,11 @@ GameObject = {
 				end]]
 			end
 			if held_transforms[self.xform] and held_transforms[self.xform]~=self then
-				self = merge_tables(self, held_transforms[self.xform], true)
+				self = Utils.merge_tables(self, held_transforms[self.xform], true)
 				held_transforms[self.xform] = self
 			end
 			if SettingsCache.Collection_data.collection_xforms and SettingsCache.Collection_data.collection_xforms[self.xform] and Collection[SettingsCache.Collection_data.collection_xforms[self.xform] ] and Collection[SettingsCache.Collection_data.collection_xforms[self.xform] ]~=self then
-				self = merge_tables(self, Collection[SettingsCache.Collection_data.collection_xforms[self.xform] ], true)
+				self = Utils.merge_tables(self, Collection[SettingsCache.Collection_data.collection_xforms[self.xform] ], true)
 				Collection[SettingsCache.Collection_data.collection_xforms[self.xform] ] = self
 			end
 			
@@ -10436,7 +10436,7 @@ local function init_resources(force)
 				if new_cache then 
 					for key, value in pairs(new_cache) do 
 						if type(value)=="table" then
-							RSCache[key] = merge_tables(value, RSCache[key] or {}, true)
+							RSCache[key] = Utils.merge_tables(value, RSCache[key] or {}, true)
 						end
 					end
 				end
@@ -10549,7 +10549,7 @@ re.on_application_entry("UpdateMotion", function()
 			deferred_call(managed_object, args)
 		end
 		
-		for name, tmp_fn in pairs(merge_tables({}, tmp_funcs)) do
+		for name, tmp_fn in pairs(Utils.merge_tables({}, tmp_funcs)) do
 			tmp_fn()
 		end
 	end
@@ -10674,7 +10674,7 @@ re.on_application_entry("BeginRendering", function()
 end)
 
 --Hooked copy of handle_address:
-object_explorer = merge_tables({old=object_explorer}, getmetatable(object_explorer))
+object_explorer = Utils.merge_tables({old=object_explorer}, getmetatable(object_explorer))
 object_explorer.handle_address = function(self, address, skip_ctl_panel)
 	if object_explorer.old then
 		object_explorer.old:handle_address(address)
@@ -11069,8 +11069,8 @@ EMV = {
 	orderedNext = orderedNext,
 	orderedPairs = orderedPairs,
 	run_command = run_command,
-	merge_indexed_tables = merge_indexed_tables,
-	merge_tables = merge_tables,
+	merge_indexed_tables = Utils.merge_indexed_tables,
+	merge_tables = Utils.merge_tables,
 	deep_copy = deep_copy,
 	insert_if_unique = Utils.insert_if_unique,
 	can_index = Utils.can_index,
