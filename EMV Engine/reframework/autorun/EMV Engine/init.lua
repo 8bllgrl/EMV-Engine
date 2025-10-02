@@ -286,69 +286,6 @@ local function get_args(args)
 	return result
 end
 
---turn std::vector into table
--- local function vector_to_table(std_vector)
--- 	--if tostring(std_vector):find(":vector<") then 
--- 		local new_table = {}
--- 		for i, element in ipairs(std_vector) do 
--- 			table.insert(new_table, element)
--- 		end
--- 		return new_table
--- 	--end
--- end
-
---Append if unique to an indexed table
--- local function insert_if_unique(tbl_a, item, key)
--- 	if key ~= nil then
--- 		local comparator = item[key]
--- 		for i, element in ipairs(tbl_a) do
--- 			if element[key] == comparator then 
--- 				return
--- 			end
--- 		end
--- 	else
--- 		for i, element in ipairs(tbl_a) do
--- 			if element == item then 
--- 				return
--- 			end
--- 		end
--- 	end
--- 	table.insert(tbl_a, item)
--- 	return true
--- end
-
---Merge ordered lists
--- local function merge_indexed_tables(table_a, table_b, is_vec, no_dupes)
--- 	table_a = table_a or {}
--- 	table_b = table_b or {}
--- 	local insert_method = no_dupes and table.insert or Utils.insert_if_unique
--- 	if is_vec then 
--- 		local new_tbl = {} 
--- 		for i, value_a in ipairs(table_a) do insert_method(new_tbl, value_a) end
--- 		for i, value_b in ipairs(table_b) do insert_method(new_tbl, value_b) end
--- 		return new_tbl
--- 	else
--- 		for i, value_b in ipairs(table_b) do insert_method(table_a, value_b) end
--- 		return table_a
--- 	end
--- end
-
---Merge hashed dictionaries. table_b will be merged into table_a
--- local function merge_tables(table_a, table_b, no_overwrite)
--- 	table_a = table_a or {}
--- 	table_b = table_b or {}
--- 	if no_overwrite then 
--- 		for key_b, value_b in pairs(table_b) do 
--- 			if table_a[key_b] == nil then
--- 				table_a[key_b] = value_b 
--- 			end
--- 		end
--- 	else
--- 		for key_b, value_b in pairs(table_b) do table_a[key_b] = value_b end
--- 	end
--- 	return table_a
--- end
-
 local function deep_copy(tbl, max_layers)
 	local loops, loops2 = {}, {}
 	local function recurse(sub_tbl, layer)
