@@ -1412,15 +1412,15 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 end
 
 --Matrix and Transform Utilities ----------------------------------------------------------------------------------------------------------
---Get magnitude of a vector:
-local function magnitude(vector)
-    return math.sqrt(vector.x^2 + vector.y^2 + vector.z^2)
-end
+-- --Get magnitude of a vector:
+-- local function magnitude(vector)
+--     return math.sqrt(vector.x^2 + vector.y^2 + vector.z^2)
+-- end
 
 --Get scale of a matrix:
-local function mat4_scale(mat)
-	return Vector3f.new(magnitude(mat[0]), magnitude(mat[1]), magnitude(mat[2]))
-end
+-- local function mat4_scale(mat)
+-- 	return Vector3f.new(Utils.magnitude(mat[0]), Utils.magnitude(mat[1]), Utils.magnitude(mat[2]))
+-- end
 
 --Forcibly read and write vector4s,  matrices and via.transforms:
 local function write_vec34(managed_object, offset, vector, is_known_managed_object, doVec3)
@@ -1459,13 +1459,13 @@ local function read_mat4(managed_object, offset, is_known_managed_object)
 end
 
 --Convert matrix4 to Translation, Rotation and Scale
-local function mat4_to_trs(mat4, as_tbl)
-	local pos = mat4[3]:to_vec3()
-	local rot = mat4:to_quat()
-	local scale = mat4_scale(mat4)
-	if as_tbl then return {pos, rot, scale} end
-	return pos, rot, scale
-end
+-- local function mat4_to_trs(mat4, as_tbl)
+-- 	local pos = mat4[3]:to_vec3()
+-- 	local rot = mat4:to_quat()
+-- 	local scale = Utils.mat4_scale(mat4)
+-- 	if as_tbl then return {pos, rot, scale} end
+-- 	return pos, rot, scale
+-- end
 
 --Manually write a matrix4, or not manually if no offset is provided
 local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
@@ -1479,7 +1479,7 @@ local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
 				write_vec34(managed_object, offset + 48, mat4[3], true)
 			end
 		elseif tostring(managed_object):find("RETransform") then
-			local pos, rot, scale = mat4_to_trs(mat4)
+			local pos, rot, scale = Utils.mat4_to_trs(mat4)
 			managed_object:call("set_Position", pos)
 			managed_object:call("set_Rotation", rot)
 			managed_object:call("set_Scale", scale)
@@ -1488,21 +1488,21 @@ local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
 end
 
 --Convert Translation, Rotation and Scale to matrix4
-local function trs_to_mat4(translation, rotation, scale)
-	if type(translation)=="table" then 
-		translation, rotation, scale = table.unpack(translation)
-	end
-	local scale_mat = Matrix4x4f.new(
-		Vector4f.new(scale.x or 1, 0, 0, 0),
-		Vector4f.new(0, scale.y or 1, 0, 0),
-		Vector4f.new(0, 0, scale.z or 1, 0),
-		Vector4f.new(0, 0, 0, 1)
-	)
-	local new_mat = rotation:to_mat4() or Matrix4x4f.identity()
-	new_mat = new_mat * scale_mat
-	new_mat[3] = ((translation and translation.to_vec4 and translation:to_vec4()) or translation) or new_mat[3]
-	return new_mat
-end
+-- local function trs_to_mat4(translation, rotation, scale)
+-- 	if type(translation)=="table" then 
+-- 		translation, rotation, scale = table.unpack(translation)
+-- 	end
+-- 	local scale_mat = Matrix4x4f.new(
+-- 		Vector4f.new(scale.x or 1, 0, 0, 0),
+-- 		Vector4f.new(0, scale.y or 1, 0, 0),
+-- 		Vector4f.new(0, 0, scale.z or 1, 0),
+-- 		Vector4f.new(0, 0, 0, 1)
+-- 	)
+-- 	local new_mat = rotation:to_mat4() or Matrix4x4f.identity()
+-- 	new_mat = new_mat * scale_mat
+-- 	new_mat[3] = ((translation and translation.to_vec4 and translation:to_vec4()) or translation) or new_mat[3]
+-- 	return new_mat
+-- end
 
 --Get Translation, Rotation and Scale from an GameObject or GameObject
 local function get_trs(object) 
@@ -1513,19 +1513,19 @@ local function get_trs(object)
 end
 
 --Limit a variable's range
-local function clamp(val, lowerlimit, upperlimit)
-	if val < lowerlimit then
-		val = lowerlimit
-	elseif val > upperlimit then
-		val = upperlimit
-	end
-	return val
-end
+-- local function clamp(val, lowerlimit, upperlimit)
+-- 	if val < lowerlimit then
+-- 		val = lowerlimit
+-- 	elseif val > upperlimit then
+-- 		val = upperlimit
+-- 	end
+-- 	return val
+-- end
 
-local function smoothstep(edge0, edge1, x)
-	x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0) 
-	return x * x * (3 - 2 * x)
-end
+-- local function smoothstep(edge0, edge1, x)
+-- 	x = Utils.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0) 
+-- 	return x * x * (3 - 2 * x)
+-- end
 
 --Generate Enums --------------------------------------------------------------------------------------------------------
 function generate_statics(typename, make_global)
@@ -3298,7 +3298,7 @@ local function create_gameobj(name, component_names, args, dont_rename)
 		end
 		
 		if worldmatrix then 
-			local t, r, s = mat4_to_trs(worldmatrix)
+			local t, r, s = Utils.mat4_to_trs(worldmatrix)
 			xform:call("set_Position", t)
 			xform:call("set_Rotation", r)
 			xform:call("set_Scale", s)
@@ -7884,7 +7884,7 @@ local function show_collection()
 						imgui.tree_pop()
 					end
 					if sel_obj.is_grabbed and sel_obj.packed_xform then
-						cd.worldmatrix = trs_to_mat4(sel_obj.packed_xform)
+						cd.worldmatrix = Utils.trs_to_mat4(sel_obj.packed_xform)
 					end
 				else
 					imgui.new_line()
@@ -8217,7 +8217,7 @@ local function show_collection()
 	end
 	
 	if cd and (moved_last_obj or cd.gizmo_freeze_selected) and cd.sel_obj and cd.gizmo_moves_selected then 
-		local trs = mat4_to_trs(cd.worldmatrix, true)
+		local trs = Utils.mat4_to_trs(cd.worldmatrix, true)
 		trs[2]:normalize()
 		cd.sel_obj.start_time = uptime - 1
 		--sel_obj.init_worldmat = cd.worldmatrix
@@ -11019,14 +11019,14 @@ EMV = {
 	split = split,
 	Split = Split,
 	vector_to_table = Utils.vector_to_table,
-	magnitude = magnitude,
-	mat4_scale = mat4_scale,
+	magnitude = Utils.magnitude,
+	mat4_scale = Utils.mat4_scale,
 	write_vec34 = write_vec34,
 	read_vec34 = read_vec34,
 	read_mat4 = read_mat4,
 	write_mat4 = write_mat4,
-	trs_to_mat4 = trs_to_mat4,
-	mat4_to_trs = mat4_to_trs,
+	trs_to_mat4 = Utils.trs_to_mat4,
+	mat4_to_trs = Utils.mat4_to_trs,
 	get_trs = get_trs,
 	create_resource = create_resource,
 	get_folders = get_folders,
@@ -11045,8 +11045,8 @@ EMV = {
 	lua_get_enumerator = lua_get_enumerator,
 	lua_get_system_array = lua_get_system_array,
 	reverse_table = Utils.reverse_table,
-	clamp = clamp,
-	smoothstep = smoothstep,
+	clamp = Utils.clamp,
+	smoothstep = Utils.smoothstep,
 	generate_statics = generate_statics,
 	get_enum = get_enum,
 	value_to_obj = value_to_obj,
