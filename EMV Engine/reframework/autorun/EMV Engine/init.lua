@@ -286,26 +286,26 @@ local function get_args(args)
 	return result
 end
 
-local function deep_copy(tbl, max_layers)
-	local loops, loops2 = {}, {}
-	local function recurse(sub_tbl, layer)
-		local new_tbl = {}
-		for key, value in pairs(sub_tbl or {}) do
-			if (not max_layers or layer <= max_layers) and type(value) == "table" then
-				if not loops[value] then
-					loops[value] = Utils.merge_tables({}, value)
-					loops[value] = recurse(loops[value], layer+1) 
-				end
-				new_tbl[key] = loops[value]
-				--log.debug()
-			else
-				new_tbl[key] = value
-			end
-		end
-		return new_tbl
-	end
-	return recurse(tbl, 0)
-end
+-- local function deep_copy(tbl, max_layers)
+-- 	local loops, loops2 = {}, {}
+-- 	local function recurse(sub_tbl, layer)
+-- 		local new_tbl = {}
+-- 		for key, value in pairs(sub_tbl or {}) do
+-- 			if (not max_layers or layer <= max_layers) and type(value) == "table" then
+-- 				if not loops[value] then
+-- 					loops[value] = Utils.merge_tables({}, value)
+-- 					loops[value] = recurse(loops[value], layer+1) 
+-- 				end
+-- 				new_tbl[key] = loops[value]
+-- 				--log.debug()
+-- 			else
+-- 				new_tbl[key] = value
+-- 			end
+-- 		end
+-- 		return new_tbl
+-- 	end
+-- 	return recurse(tbl, 0)
+-- end
 
 --Reverse a table order
 local function reverse_table(t)
@@ -1876,7 +1876,7 @@ Hotkey = {
 		end
 		local dump_keys = {}
 		for name, tbl in pairs(Hotkey.used) do 
-			local dmp_tbl = deep_copy(tbl)
+			local dmp_tbl = Utils.deep_copy(tbl)
 			if tbl.obj then
 				dmp_tbl.dfcall.obj = obj_to_json(tbl.obj, true, tbl.dfcall_json)
 				for i, arg in ipairs(tbl.dfcall.args or {}) do 
@@ -2373,7 +2373,7 @@ local function save_json_gameobject(anim_object, return_merged_tables, single_co
 		end
 	end
 	
-	local og_output = deep_copy(output)
+	local og_output = Utils.deep_copy(output)
 	if return_merged_tables then 
 		return output
 	end
@@ -8181,7 +8181,7 @@ local function show_collection()
 			if create_button_pressed then 
 				cd.gizmo_moves_selected = true
 				cd.new_args.worldmatrix = cd.worldmatrix
-				local copy_args = deep_copy(cd.new_args)
+				local copy_args = Utils.deep_copy(cd.new_args)
 				copy_args.parent = copy_args.parent and (copy_args.parent:get_type_definition():is_a("via.GameObject") and copy_args.parent:call("get_Transform")) or copy_args.parent
 				copy_args.rot = cd.has_parent_joint and copy_args.worldmatrix:to_quat()
 				copy_args.worldmatrix = not cd.has_parent_joint and cd.worldmatrix
@@ -8232,7 +8232,7 @@ local function show_collection()
 	end
 	
 	if do_reset then 
-		cd = deep_copy(default_SettingsCache.Collection_data)
+		cd = Utils.deep_copy(default_SettingsCache.Collection_data)
 	end
 	
 	SettingsCache.Collection_data = cd or SettingsCache
@@ -10403,7 +10403,7 @@ static_funcs.init_resources = init_resources
 static_funcs.loaded_json = false
 
 --Load other settings, enums, misc tables:
-default_SettingsCache = deep_copy(SettingsCache)
+default_SettingsCache = Utils.deep_copy(SettingsCache)
 
 local function init_settings()
 	
@@ -10927,7 +10927,7 @@ re.on_draw_ui(function()
 			
 			--imgui.same_line() 
 			if imgui.button("Reset Settings") then 
-				SettingsCache = deep_copy(default_SettingsCache)
+				SettingsCache = Utils.deep_copy(default_SettingsCache)
 				changed = true
 			end
 			
@@ -11008,7 +11008,7 @@ EMV = {
 	run_command = run_command,
 	merge_indexed_tables = Utils.merge_indexed_tables,
 	merge_tables = Utils.merge_tables,
-	deep_copy = deep_copy,
+	deep_copy = Utils.deep_copy,
 	insert_if_unique = Utils.insert_if_unique,
 	can_index = Utils.can_index,
 	jsonify_table = jsonify_table,
