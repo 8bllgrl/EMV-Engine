@@ -244,16 +244,16 @@ end
 -- end
 
 --Test if a table is an array
-local function isArray(t)
-	local i = 0
-	if not t[1] then return false end
-	if t["n"] ~= nil then return true end 
-	for _ in pairs(t) do
-		i = i + 1
-		if t[i] == nil then return false end
-	end
-	return true
-end
+-- local function isArray(t)
+-- 	local i = 0
+-- 	if not t[1] then return false end
+-- 	if t["n"] ~= nil then return true end 
+-- 	for _ in pairs(t) do
+-- 		i = i + 1
+-- 		if t[i] == nil then return false end
+-- 	end
+-- 	return true
+-- end
 
 --Remove an element from an ordered table while iterating without upsetting the order/iteration:
 local function arrayRemove(tbl, keep_function)
@@ -287,41 +287,41 @@ local function get_args(args)
 end
 
 --turn std::vector into table
-local function vector_to_table(std_vector)
-	--if tostring(std_vector):find(":vector<") then 
-		local new_table = {}
-		for i, element in ipairs(std_vector) do 
-			table.insert(new_table, element)
-		end
-		return new_table
-	--end
-end
+-- local function vector_to_table(std_vector)
+-- 	--if tostring(std_vector):find(":vector<") then 
+-- 		local new_table = {}
+-- 		for i, element in ipairs(std_vector) do 
+-- 			table.insert(new_table, element)
+-- 		end
+-- 		return new_table
+-- 	--end
+-- end
 
 --Append if unique to an indexed table
-local function insert_if_unique(tbl_a, item, key)
-	if key ~= nil then
-		local comparator = item[key]
-		for i, element in ipairs(tbl_a) do
-			if element[key] == comparator then 
-				return
-			end
-		end
-	else
-		for i, element in ipairs(tbl_a) do
-			if element == item then 
-				return
-			end
-		end
-	end
-	table.insert(tbl_a, item)
-	return true
-end
+-- local function insert_if_unique(tbl_a, item, key)
+-- 	if key ~= nil then
+-- 		local comparator = item[key]
+-- 		for i, element in ipairs(tbl_a) do
+-- 			if element[key] == comparator then 
+-- 				return
+-- 			end
+-- 		end
+-- 	else
+-- 		for i, element in ipairs(tbl_a) do
+-- 			if element == item then 
+-- 				return
+-- 			end
+-- 		end
+-- 	end
+-- 	table.insert(tbl_a, item)
+-- 	return true
+-- end
 
 --Merge ordered lists
 local function merge_indexed_tables(table_a, table_b, is_vec, no_dupes)
 	table_a = table_a or {}
 	table_b = table_b or {}
-	local insert_method = no_dupes and table.insert or insert_if_unique
+	local insert_method = no_dupes and table.insert or Utils.insert_if_unique
 	if is_vec then 
 		local new_tbl = {} 
 		for i, value_a in ipairs(table_a) do insert_method(new_tbl, value_a) end
@@ -430,7 +430,7 @@ local function qsort(tbl, key, ascending)
 	if type(tbl)~="table" then return end
 	local testkey, test = next(tbl)
 	if test and test[key]~=nil then
-		local arrayOutput = not isArray(tbl) and {}
+		local arrayOutput = not Utils.isArray(tbl) and {}
 		if arrayOutput then 
 			for key, value in pairs(tbl) do
 				local copy = merge_tables({__key=key}, value)
@@ -440,7 +440,7 @@ local function qsort(tbl, key, ascending)
 		end
 		if ascending then
 			if type(tbl[1][key]) == "table" then 
-				if isArray(tbl[1][key]) then
+				if Utils.isArray(tbl[1][key]) then
 					table.sort (tbl, function (obj1, obj2) return #obj1[key] < #obj2[key]  end)
 				else
 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) < Utils.get_table_size(obj2[key]) end)
@@ -450,7 +450,7 @@ local function qsort(tbl, key, ascending)
 			end
 		else
 			if type(test[key]) == "table" then 
-				if isArray(test[key]) then 
+				if Utils.isArray(test[key]) then 
 					table.sort (tbl, function (obj1, obj2) return #obj1[key] > #obj2[key]  end)
 				else
 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) > Utils.get_table_size(obj2[key]) end)
@@ -890,7 +890,7 @@ local function editable_table_field(key, value, owner_tbl, display_name, args)
 				imgui.same_line()
 				if imgui.button("Add") and (not m_tbl[subtbl_key] or (m_tbl[subtbl_key].___new_value:sub(1,5) ~= "[New]")) then 
 					m_tbl[subtbl_key] = m_tbl[subtbl_key] or {}
-					m_tbl[subtbl_key].___is_array = isArray(value)
+					m_tbl[subtbl_key].___is_array = Utils.isArray(value)
 					m_tbl[subtbl_key].___new_key = ((m_tbl[subtbl_key].___is_array or (next(value)==nil)) and #value+1) or "[Key]"
 					local same_type
 					for k, v in pairs(value) do 
@@ -1026,7 +1026,7 @@ local function editable_table_field(key, value, owner_tbl, display_name, args)
 							owner_tbl[key] = false 
 							output = 1
 						elseif (m_subtbl.value=="") or (m_subtbl.value=="nil") or (m_subtbl.value=='') then --lets you delete any value with "" or "nil"
-							if not isArray(owner_tbl) or not pcall(function() table.remove(owner_tbl, key) end) then
+							if not Utils.isArray(owner_tbl) or not pcall(function() table.remove(owner_tbl, key) end) then
 								owner_tbl[key] = nil
 							end
 							output = 1
@@ -1038,7 +1038,7 @@ local function editable_table_field(key, value, owner_tbl, display_name, args)
 							end
 							--re.msg("FINAL: " .. tostring(final_value) .. ", Func:" .. tostring(p_check_add_func) .. " or " .. tostring(check_add_func) .. ", " .. tostring(p_check_add_func(final_value)) .. ", " .. tostring(check_add_func(final_value)))
 							if (final_value==nil) then
-								if not isArray(owner_tbl) or not pcall(function() table.remove(owner_tbl, key) end) then
+								if not Utils.isArray(owner_tbl) or not pcall(function() table.remove(owner_tbl, key) end) then
 									owner_tbl[key] = nil
 								end
 							else
@@ -1101,9 +1101,9 @@ local ImguiTable = {
 		self.__index = self
 		
 		o.key = args.key 
-		o.is_array = (args.is_array or isArray(args.tbl)) or nil
+		o.is_array = (args.is_array or Utils.isArray(args.tbl)) or nil
 		o.is_vec = not not (tostring(args.tbl):find("::vector")) or nil
-		o.tbl = (o.is_vec and vector_to_table(args.tbl)) or args.tbl
+		o.tbl = (o.is_vec and Utils.vector_to_table(args.tbl)) or args.tbl
 		
 		--local tbl_size = get_table_size(o.tbl)
 		--if tbl_size > 25000 then return {} end
@@ -1150,7 +1150,7 @@ local ImguiTable = {
 			if element.__type and not pcall(function() for k, v in pairs(element) do goto exit end ::exit:: end) then return element.__type.name end
 			if (element.new or element.update) and Utils.can_index(element) then --or (can_index(element) and element.new and (element.name .. ""))
 				name = elem_key .. ":	" .. tostring(element.name) .. "	[Object] (" .. Utils.get_table_size(element) .. " elements)"
-			elseif isArray(element) then
+			elseif Utils.isArray(element) then
 				name = elem_key .. ":	[" .. #element .. " elements]" 
 			else
 				local mt = getmetatable(element)
@@ -1175,7 +1175,7 @@ local ImguiTable = {
 			self.names = {}
 			self.element_data = {}
 			if self.is_vec then 
-				tbl = vector_to_table(tbl)
+				tbl = Utils.vector_to_table(tbl)
 			end
 			for key, value in self.pairs(tbl) do
 				if not self.skip_underscores or not ((type(key)=="string") and key:sub(1,2)=="__") then
@@ -1466,7 +1466,7 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 			imgui.tree_pop()
 		end
 	elseif ((type(elem) == "table" and next(elem) ~= nil) or (is_vec and elem[1])) and pcall(pairs, elem)  then
-		read_imgui_pairs_table(elem, key, (is_vec and elem[1]) or isArray(elem), editable)
+		read_imgui_pairs_table(elem, key, (is_vec and elem[1]) or Utils.isArray(elem), editable)
 	elseif editable and key and type(editable)=="table" then 
 		editable_table_field(key, elem, editable)
 	else
@@ -2517,7 +2517,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 			elseif not go_back_to_table then 
 				if sdk.is_managed_object(key) then
 					key = "obj:" .. ((type(key)=="userdata" and key:get_address()) or key)
-				elseif type(key)=="number" and not isArray(tbl) then
+				elseif type(key)=="number" and not Utils.isArray(tbl) then
 					key = "num:" .. key
 				end
 			end
@@ -2716,7 +2716,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 			--Everything else:
 			elseif not (key == "n" and next(tbl, key) == nil) then --dont include "n" (length) keys from arrays
 				if type(value) == "table" then
-					value = is_vec and vector_to_table(value) or value
+					value = is_vec and Utils.vector_to_table(value) or value
 					if key ~= "_" then
 						local mt = getmetatable(value)
 						if go_back_to_table and tbl["n"] and type(key) == "string" then 
@@ -2932,7 +2932,7 @@ local function lua_get_system_array(sys_array, allow_empty, convert_to_table)
 	end
 	if system_array and convert_to_table then
 		if convert_to_table == true then
-			system_array = vector_to_table(system_array)
+			system_array = Utils.vector_to_table(system_array)
 		elseif (convert_to_table == 1) and tostring(system_array[1]):find("[RV][Ea][Ml][au][ne][aT]") then 
 			local dict, used_names = {}, {}
 			for i, object in ipairs(system_array) do
@@ -3572,7 +3572,7 @@ deferred_call = function(managed_object, args, index, on_frame)
 	
 	local deferred_calls = (on_frame and on_frame_calls) or deferred_calls
 	
-	if not index and isArray(args) then
+	if not index and Utils.isArray(args) then
 		local frozen_calls = {}
 		for idx, real_args in ipairs(args) do
 			if deferred_call(managed_object, real_args, idx, on_frame) then
@@ -3891,7 +3891,7 @@ function json.log(value, remove_arraykeys, remove_quotes, key, layer)
 		if type(value) == "table" then
 			
 			local is_empty = (next(value) == nil)
-			local is_arr = isArray(value)
+			local is_arr = Utils.isArray(value)
 			
 			table.insert(msg, (key and ("\"" .. tostring(key) .. "\": ") or "") .. ((is_empty and "[],") or (is_arr and "[") or "{"))
 			
@@ -3952,7 +3952,7 @@ local function log_value(value, value_name, layer_limit, layer, verbose, return_
 			local is_vec = (val_type ~= "table")
 			if (not is_vec and (next(value) ~= nil)) or value[1] then
 				local len = 0
-				local is_array = is_vec or (value[1] ~= nil and isArray(value))
+				local is_array = is_vec or (value[1] ~= nil and Utils.isArray(value))
 				if is_array then
 					if verbose then 
 						table.insert(msg, (is_vec and " [vector] " or " ") .. " [" .. #value .. " elements] ") 
@@ -5665,7 +5665,7 @@ local function imgui_chain_settings(via_chain, xform, game_object_name)
 				if not group.setting_idx then --initial setup (requiring all other chain groups)
 					cached_chain_settings_names[via_chain] = cached_chain_settings_names[via_chain] or {}
 					for j, grp in ipairs(chain_groups) do 
-						insert_if_unique(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
+						Utils.insert_if_unique(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
 						grp.setting_idx = find_index(cached_chain_settings_names[via_chain], "Settings " .. grp.settings_id)
 						grp.blend_idx = grp.setting_idx
 						grp:change_custom_setting()
@@ -9021,10 +9021,10 @@ GameObject = {
 	
 	gather_all_children = function(self, tbl_to_insert_to)
 		tbl_to_insert_to = tbl_to_insert_to or {}
-		insert_if_unique(tbl_to_insert_to, self)
+		Utils.insert_if_unique(tbl_to_insert_to, self)
 		for i, child in ipairs(self.children or {}) do
 			local child_obj = held_transforms[child] or GameObject:new_AnimObject{xform=child}
-			if child_obj and insert_if_unique(tbl_to_insert_to, child_obj) then 
+			if child_obj and Utils.insert_if_unique(tbl_to_insert_to, child_obj) then 
 				tbl_to_insert_to = child_obj:gather_all_children(tbl_to_insert_to)
 			end
 		end
@@ -9359,7 +9359,7 @@ GameObject = {
 			for i, joint in ipairs(poser.all_joints) do
 				for t, term in ipairs(search_terms) do 
 					if term == "" or joint:get_Name():lower():find(term) then
-						insert_if_unique(poser.searched_joints, joint)
+						Utils.insert_if_unique(poser.searched_joints, joint)
 					end
 				end
 			end
@@ -9785,9 +9785,9 @@ GameObject = {
 				--if grab then 
 				--	grab(self.xform, {init_offet=self.cog_joint and self.cog_joint:call("get_BaseLocalPosition")}) 
 				--end
-			elseif insert_if_unique(total_objects, self) then
+			elseif Utils.insert_if_unique(total_objects, self) then
 				total_objects = self:gather_all_children(total_objects)
-			elseif insert_if_unique(imgui_anims, self) then
+			elseif Utils.insert_if_unique(imgui_anims, self) then
 				imgui_anims = self:gather_all_children(imgui_anims)
 			end
 			self.forced_mode_center = self.xform:call("get_WorldMatrix")
@@ -11072,7 +11072,7 @@ EMV = {
 	merge_indexed_tables = merge_indexed_tables,
 	merge_tables = merge_tables,
 	deep_copy = deep_copy,
-	insert_if_unique = insert_if_unique,
+	insert_if_unique = Utils.insert_if_unique,
 	can_index = Utils.can_index,
 	jsonify_table = jsonify_table,
 	mouse_state = mouse_state,
@@ -11081,7 +11081,7 @@ EMV = {
 	get_kb_device = get_kb_device,
 	split = split,
 	Split = Split,
-	vector_to_table = vector_to_table,
+	vector_to_table = Utils.vector_to_table,
 	magnitude = magnitude,
 	mat4_scale = mat4_scale,
 	write_vec34 = write_vec34,
@@ -11094,7 +11094,7 @@ EMV = {
 	create_resource = create_resource,
 	get_folders = get_folders,
 	get_table_size = Utils.get_table_size,
-	isArray = isArray,
+	isArray = Utils.isArray,
 	arrayRemove = arrayRemove,
 	deferred_call = deferred_call,
 	get_children = get_children,
