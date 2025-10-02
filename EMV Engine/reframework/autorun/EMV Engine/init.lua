@@ -205,55 +205,12 @@ local get_GameObject
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
 
---Get the next value in a table
--- local nextValue = function(tbl)
--- 	local key, value = next(tbl)
--- 	return value
--- end
-
 --Test if a lua variable can be indexed
 local function can_index(lua_object)
 	local mt = getmetatable(lua_object)
 	return (not mt and type(lua_object) == "table") or (mt and (not not mt.__index))
 end
 
---Get a random chance. 1/60th odds would be "if random(60) then"
--- local function random(ratio)
--- 	if ratio == 1 then return true end
--- 	math.randomseed(math.floor(os.clock()*100))
--- 	return (math.random(1, ratio) == 1)
--- end
-
---Get a random number in a range
--- local function random_range(start, finish)
--- 	if start >= finish then return start end
--- 	math.randomseed(math.floor(os.clock()*100))
--- 	return math.random(start, finish)
--- end
-
---Get dictionary size
--- local function get_table_size(tbl) 
--- 	if type(tbl) ~= "table" then return 0 end
--- 	local i, last_key, first_key = 0
--- 	for k, v in pairs(tbl) do 
--- 		i = i + 1
--- 		first_key = first_key or k
--- 		last_key = k
--- 	end
--- 	return i, first_key, last_key
--- end
-
---Test if a table is an array
--- local function isArray(t)
--- 	local i = 0
--- 	if not t[1] then return false end
--- 	if t["n"] ~= nil then return true end 
--- 	for _ in pairs(t) do
--- 		i = i + 1
--- 		if t[i] == nil then return false end
--- 	end
--- 	return true
--- end
 
 --Remove an element from an ordered table while iterating without upsetting the order/iteration:
 local function arrayRemove(tbl, keep_function)
@@ -285,121 +242,6 @@ local function get_args(args)
 	end
 	return result
 end
-
--- local function deep_copy(tbl, max_layers)
--- 	local loops, loops2 = {}, {}
--- 	local function recurse(sub_tbl, layer)
--- 		local new_tbl = {}
--- 		for key, value in pairs(sub_tbl or {}) do
--- 			if (not max_layers or layer <= max_layers) and type(value) == "table" then
--- 				if not loops[value] then
--- 					loops[value] = Utils.merge_tables({}, value)
--- 					loops[value] = recurse(loops[value], layer+1) 
--- 				end
--- 				new_tbl[key] = loops[value]
--- 				--log.debug()
--- 			else
--- 				new_tbl[key] = value
--- 			end
--- 		end
--- 		return new_tbl
--- 	end
--- 	return recurse(tbl, 0)
--- end
-
--- --Reverse a table order
--- local function reverse_table(t)
--- 	local new_table = {}
--- 	for i =  #t, 1, -1 do 
--- 		table.insert(new_table, t[i])
--- 	end
--- 	return new_table
--- end
-
---Find the index of a value in an array
--- local function find_index(tbl, value, key)
--- 	if key ~= nil then 
--- 		for i, item in ipairs(tbl) do
--- 			if item[key] == value then
--- 				return i
--- 			end
--- 		end
--- 	else
--- 		for i, item in ipairs(tbl) do
--- 			if item == value then
--- 				return i
--- 			end
--- 		end
--- 	end
--- end
-
--- --Check if a name is not unique in a table, and add a number to it if its not
--- local function resolve_duplicate_names(names_table, name, key)
--- 	if key then 
--- 		local new_names_tbl = {}
--- 		for k, v in pairs(names_table) do 
--- 			new_names_tbl[v[key]] = true
--- 		end
--- 		names_table = new_names_tbl
--- 	end
--- 	local ctr = 0
--- 	local new_name = name
--- 	while names_table[new_name] do 
--- 		ctr = ctr + 1
--- 		new_name = name .. " (" .. string.format("%01d", ctr) .. ")"
--- 	end
--- 	return new_name
--- end
-
---[[
--- Run in the console to detect when any component on "player" has been enabled or disabled:
-enableds = enableds or {} 
-for i, component in ipairs(player.components) do 
-	ts_name=component:call("ToString()") or i 
-	if enableds[ts_name]==nil then enableds[ts_name]=component:call("get_Enabled") end 
-	if enableds[ts_name]~=component:call("get_Enabled") then enableds[ts_name]=component:call("get_Enabled") re.msg("Component "..ts_name.." now "..tostring(enableds[ts_name])) end 
-end 
-enableds = enableds 
-]]
-
---Sort any table by a given key
--- local function qsort(tbl, key, ascending)
--- 	if type(tbl)~="table" then return end
--- 	local testkey, test = next(tbl)
--- 	if test and test[key]~=nil then
--- 		local arrayOutput = not Utils.isArray(tbl) and {}
--- 		if arrayOutput then 
--- 			for key, value in pairs(tbl) do
--- 				local copy = Utils.merge_tables({__key=key}, value)
--- 				table.insert(arrayOutput, copy)
--- 			end
--- 			tbl = arrayOutput
--- 		end
--- 		if ascending then
--- 			if type(tbl[1][key]) == "table" then 
--- 				if Utils.isArray(tbl[1][key]) then
--- 					table.sort (tbl, function (obj1, obj2) return #obj1[key] < #obj2[key]  end)
--- 				else
--- 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) < Utils.get_table_size(obj2[key]) end)
--- 				end
--- 			else
--- 				table.sort (tbl, function (obj1, obj2) return obj1[key] < obj2[key] end)
--- 			end
--- 		else
--- 			if type(test[key]) == "table" then 
--- 				if Utils.isArray(test[key]) then 
--- 					table.sort (tbl, function (obj1, obj2) return #obj1[key] > #obj2[key]  end)
--- 				else
--- 					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) > Utils.get_table_size(obj2[key]) end)
--- 				end
--- 			else
--- 				table.sort (tbl, function (obj1, obj2) return obj1[key] > obj2[key] end)
--- 			end
--- 		end
--- 		return tbl
--- 	end
--- 	return tbl, false
--- end
 
 --orderedPairs for sorting keys alphabetically ----------------------------------------------------------------------------------------------------
 local function cmp_multitype(op1, op2)
@@ -845,12 +687,6 @@ local function editable_table_field(key, value, owner_tbl, display_name, args)
 			imgui.pop_id()
 			
 			read_imgui_pairs_table(value, key, (m_tbl[subtbl_key] and m_tbl[subtbl_key].___is_array), args) 
-			--[[for k, v in orderedPairs(value) do 
-				if (type(v)=="table") or is_obj_or_vt(v) or not editable_table_field(k, v, value, (type(k)=="string") and ("\"" .. k .. "\"") or k) then
-					read_imgui_element(v, nil, false, k)
-				end
-			end]]
-			
 			if m_tbl[subtbl_key] and m_tbl[subtbl_key].___new_value~=nil then
 				
 				local old_value = value[m_tbl[subtbl_key].___new_key]
@@ -1129,11 +965,6 @@ local ImguiTable = {
 		end
 		
 		if self.show_closest then
-			--local camera = 
-			--local player_obj = camera.gameobj
-			--[[table.sort (self.ordered_idxes, function(idx1, idx2)
-				return static_funcs.distance_gameobjs:call(nil, self.tbl[idx1]:call("get_GameObject"), player_obj) < static_funcs.distance_gameobjs:call(nil, self.tbl[idx2]:call("get_GameObject"), player_obj)
-			end)]]
 			local max_idx = self.sort_closest_optional_limit or 10
 			if max_idx > #self.ordered_idxes then 
 				max_idx = #self.ordered_idxes 
@@ -1205,18 +1036,8 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 			else
 				tbl_obj.sort_closest_optional_limit, tbl_obj.sort_closest_optional_max_distance = nil
 			end
-			--[[if imgui.tree_node("Ordered") then
-				read_imgui_element(tbl_obj.ordered_idxes)
-				imgui.tree_pop()
-			end
-			tbl_obj.ordered_idxes = tbl_obj.bla]]
 		end
 		
-		--[[if imgui.tree_node_str_id(key .. "T", "Table _data") then
-			read_imgui_element(tbl_obj, nil, key .. "T")
-			imgui.tree_pop()
-		end]]
-		--imgui.text(tostring(tbl_obj.tbl_count))
 		
 		local do_subtables = ordered_idxes and (#ordered_idxes > SettingsCache.max_element_size)
 		--imgui.text(tostring(editable) .. asd)
@@ -1366,18 +1187,6 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 				end
 			end
 		end
-	
-	--[[else
-		for sub_key, sub_elem in orderedPairs(tbl) do 
-			if (type(sub_elem)=="table" or can_index(sub_elem)) then
-				if imgui.tree_node_str_id(key, sub_elem) then
-					read_imgui_pairs_table(sub_elem, sub_key)
-					imgui.tree_pop()
-				end
-			else
-				imgui.text(sub_key .. ": " .. tostring(sub_elem))
-			end
-		end]]
 	end
 	imgui.pop_font()
 end
@@ -1412,16 +1221,6 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 end
 
 --Matrix and Transform Utilities ----------------------------------------------------------------------------------------------------------
--- --Get magnitude of a vector:
--- local function magnitude(vector)
---     return math.sqrt(vector.x^2 + vector.y^2 + vector.z^2)
--- end
-
---Get scale of a matrix:
--- local function mat4_scale(mat)
--- 	return Vector3f.new(Utils.magnitude(mat[0]), Utils.magnitude(mat[1]), Utils.magnitude(mat[2]))
--- end
-
 --Forcibly read and write vector4s,  matrices and via.transforms:
 local function write_vec34(managed_object, offset, vector, is_known_managed_object, doVec3)
 	if is_known_managed_object or sdk.is_managed_object(managed_object) then 
@@ -1458,15 +1257,6 @@ local function read_mat4(managed_object, offset, is_known_managed_object)
 	end
 end
 
---Convert matrix4 to Translation, Rotation and Scale
--- local function mat4_to_trs(mat4, as_tbl)
--- 	local pos = mat4[3]:to_vec3()
--- 	local rot = mat4:to_quat()
--- 	local scale = Utils.mat4_scale(mat4)
--- 	if as_tbl then return {pos, rot, scale} end
--- 	return pos, rot, scale
--- end
-
 --Manually write a matrix4, or not manually if no offset is provided
 local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
 	is_known_valid = is_known_valid or tostring(managed_object):find("ValueType")
@@ -1487,22 +1277,6 @@ local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
 	end
 end
 
---Convert Translation, Rotation and Scale to matrix4
--- local function trs_to_mat4(translation, rotation, scale)
--- 	if type(translation)=="table" then 
--- 		translation, rotation, scale = table.unpack(translation)
--- 	end
--- 	local scale_mat = Matrix4x4f.new(
--- 		Vector4f.new(scale.x or 1, 0, 0, 0),
--- 		Vector4f.new(0, scale.y or 1, 0, 0),
--- 		Vector4f.new(0, 0, scale.z or 1, 0),
--- 		Vector4f.new(0, 0, 0, 1)
--- 	)
--- 	local new_mat = rotation:to_mat4() or Matrix4x4f.identity()
--- 	new_mat = new_mat * scale_mat
--- 	new_mat[3] = ((translation and translation.to_vec4 and translation:to_vec4()) or translation) or new_mat[3]
--- 	return new_mat
--- end
 
 --Get Translation, Rotation and Scale from an GameObject or GameObject
 local function get_trs(object) 
@@ -1511,21 +1285,6 @@ local function get_trs(object)
 	end
 	return object:call("get_Position"), object:call("get_Rotation"), object:call("get_LocalScale")
 end
-
---Limit a variable's range
--- local function clamp(val, lowerlimit, upperlimit)
--- 	if val < lowerlimit then
--- 		val = lowerlimit
--- 	elseif val > upperlimit then
--- 		val = upperlimit
--- 	end
--- 	return val
--- end
-
--- local function smoothstep(edge0, edge1, x)
--- 	x = Utils.clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0) 
--- 	return x * x * (3 - 2 * x)
--- end
 
 --Generate Enums --------------------------------------------------------------------------------------------------------
 function generate_statics(typename, make_global)
@@ -1664,10 +1423,6 @@ local kb_state = {
 		[via.hid.KeyboardKey.Alpha4] = false,
 		[via.hid.KeyboardKey.Alpha5] = false,
 		[via.hid.KeyboardKey.Alpha6] = false,
-		--[via.hid.KeyboardKey.NumPad0] = false,	
-		--[via.hid.KeyboardKey.NumPad4] = false,	
-		--[via.hid.KeyboardKey.NumPad6] = false,
-		--[via.hid.KeyboardKey.Escape] = false,
     },
 }
 
@@ -1745,9 +1500,6 @@ local function check_key_released(key_id, down_timer)
 		key_tbl.just_pressed = nil
 		key_tbl.timer_start = nil
 		key_tbl.down = nil
-		--[[if down_timer and (down_timer > 0) then
-			key_tbl.just_released = nil
-		end]]
 	end
 	re3_keys[key_id] = key_tbl
 	return key_tbl.just_released or key_tbl.down_result
@@ -1973,13 +1725,6 @@ MoveSequencer = {
 				end
 			end
 			
-			--[[for name, Hotkey in pairs(Hotkeys) do 
-				if Hotkey.button_pressed then
-					o.Hotkeys[name] = Hotkey
-					Hotkey.button_pressed = nil
-				end
-			end]]
-			
 			self.items[o.name] = o
 			self.__index = self  
 			return setmetatable(o, self)
@@ -2004,19 +1749,10 @@ MoveSequencer = {
 			self.playing = self.timeline and ((pressed_play and tics) or (not pressed_play and self.playing)) or nil
 			for i, move in ipairs(self.timeline or {}) do 
 				local last_move = (i > 1) and self.timeline[i-1]
-				--[[imgui.text(i)
-				imgui.same_line()
-				pcall(function()
-					imgui.text("Move: " .. i .. " " .. move.mot_name .. " @ " .. self.movedata[move.imgui_keyname].frame .. ", Last move: " .. last_move.mot_name .. " @ " .. self.movedata[last_move.imgui_keyname].frame .. ", Current: " .. self.mot_name)
-				end)]]
+				
 				if (i == #self.timeline) and (self.mot_name == move.mot_name) and (self.movedata[move.imgui_keyname].frame >= (self.movedata[move.imgui_keyname].end_frame - 2)) then
 					self.playing = nil
 				elseif (i == 1 and (tics <= self.playing+1)) or (last_move and ((last_move.mot_name == self.mot_name) and (self.movedata[last_move.imgui_keyname].frame >= (last_move.duration)))) then
-					--[[if (i == 1 and (tics <= self.playing+1)) then
-						re.msg_safe("Starting with " .. move.mot_name .. "  duration " .. move.duration)
-					elseif last_move then 
-						re.msg_safe("changing to " .. i .. " " .. move.mot_name .. " @ last move " .. last_move.mot_name ..  " duration " .. last_move.duration .. " frame " .. self.movedata[last_move.imgui_keyname].frame, 12444315253)
-					end]]
 					self.Hotkeys[move.imgui_keyname]:update(true)
 					self.movedata[move.imgui_keyname].pressed = tics
 					break
@@ -2701,42 +2437,6 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 	return recurse(tbl_input or {}, tbl_name) or {}
 end
 
---[[if key == "_" then 
-	local data_tbl = {}
-	for i, prop in ipairs(value.props) do 
-		local val = prop.cvalue or prop.value	
-		if prop.set and (type(val) ~= "table") then --and not sdk.is_managed_object(val) then
-			new_tbl[prop.set:get_name()] = prop.cvalue or prop.value
-		end
-		if type(val) ~= "table" and not sdk.is_managed_object(val) then --and 
-			data_tbl[prop.name] = val
-			if sdk.is_managed_object(val) then 
-				if not loops[val]  then
-					loops[val] = true
-					val = json_REMgdObj(val)
-				end
-				if type(val) == "table" then
-					new_tbl[prop.name] = recurse(val)
-				else
-					new_tbl[prop.name] = "obj:" .. val:get_address()
-				end
-			else
-				new_tbl[prop.name] = val
-			end
-		end
-	end
-	new_tbl = merge_tables(new_tbl, recurse(data_tbl) or {})
-	for key, value in pairs(data_tbl) do
-		new_tbl[prop.name]
-	]]
-	
---[[if not loops[value] and ((tostring_val:find("sol%.REManagedObject%*")==1) or (tostring_val:find("sol%.RETransform%*")==1)) then -- or tostring_val:find("::ValueType")) then 
-	--log.info("Nonfunction " .. key)
-	loops[value] = key
-	new_tbl[key] = value
-else]]
-
-
 --Get all via.Folders -----------------------------------------------------------------------------------------------------------
 local function get_folders(enumerator, owner)
 	if not enumerator then return end
@@ -3052,21 +2752,6 @@ add_pfb_to_cache = function(via_prefab, pfb_path)
 		log.debug("File not found: " .. tostring(pfb_path))
 	end
 end
---stage/prefab/antique/antiqueFigure_MR/figure_104.pfb
---REResources\evc0010_Character.pfb.17
-
---[[
-function scan_for_objects(obj)
-    local output = {}
-    for i=0, obj:get_type_definition():get_size()/8 do
-		
-		if not pcall(function()
-			print(i*8 .. " " .. sdk.to_valuetype(tmp:read_qword(i*8), "System.UInt64").mValue)
-            output[i] = sdk.to_managed_object(sdk.to_valuetype(tmp:read_qword(i*8), "System.UInt64").mValue)
-        end) then print(i*8 .. " Error") end
-    end
-	return output
-end]]
 
 --Get the local player -----------------------------------------------------------------------------------------------------------------
 local function get_player(as_GameObject)
@@ -3379,86 +3064,6 @@ local function clone(instance, instance_type)
 	return instance
 end
 
---Clone a gameobject:
---[[
-function clone_gameobject(gobj)
-	
-	local new_name = gobj.name .. "_COPY"
-	
-	local clonobj = gobj.gameobj:call("create", new_name) 
-	
-	if clonobj then 
-		clonobj:call(".ctor")
-		clonobj = clonobj:add_ref()
-		
-		local size = gobj.gameobj:get_type_definition():get_size()
-		--for i = 24, size do 
-		--	clonobj:write_byte(i, gobj.gameobj:read_byte(i))
-		--end
-		local comp_addresses = {}
-		local idx_comps = {}
-		for i, component in ipairs(gobj.components) do 
-			local new_component = clonobj:call("createComponent", component:get_type_definition():get_runtime_type()) --clone(component) --
-			asdf = {clonobj, component, component:get_type_definition():get_runtime_type(), new_component}
-			if new_component then 
-				new_component = new_component:add_ref()
-				table.insert(idx_comps, {new=new_component, old=component})
-				comp_addresses[component] = i--clone(component)
-				print("created comp")
-			else	
-				print("failed to create comp")
-			end
-		end
-		
-		for i, components in ipairs(idx_comps) do 
-		
-			local typedef = components.old:get_type_definition()
-			components.new:write_qword(0x10, clonobj:get_address())
-			local childComponent = components.old:read_qword(0x18) 
-			if comp_addresses[childComponent] then 
-				local new_addr = idx_comps[ comp_addresses[childComponent] ].new:get_address()
-				--log.info("FOUND " .. typedef:get_full_name() .. ", writing " .. tostring(new_addr))
-				components.new:write_qword(0x18, new_addr) 
-			end
-			
-			--if typedef:get_full_name() == "via.Transform" then 
-				--for i = 0, typedef:get_size() do 
-				--	components.new:write_byte(i, components.old:read_byte(i))
-				--end
-				--write_mat4(components.new, 128, trs_to_mat4(components.old:call("get_Position"), components.old:call("get_Rotation"), components.old:call("get_LocalScale")))
-			--end
-			
-			for i, field in ipairs(typedef:get_fields()) do
-				if not field:is_literal() and not field:is_static() then
-					local field_name = field:get_name()
-					local field_value = components.old:get_field(field_name)
-					--local new_field_value = components.new:get_field(field_name)
-					if sdk.is_managed_object(field_value) then 
-						if comp_addresses[field_value] ~= nil then
-							--components.new:set_field(field_name, comp_addresses[field_value].new)
-						else
-							local cloned_value = clone(field_value)
-							components.new:set_field(field_name, cloned_value)
-						end
-					elseif field_value ~= nil and type(field_value) ~= "string" then 
-						sdk.set_native_field(components.new, typedef, field_name, field_value)
-						--local try = pcall(sdk.set_native_field, components.new, typedef, field_name, field_value)
-						--if not try then 
-						--	re.msg(logv(components.old:call("ToString()") .. " -> " .. field_name, "set_field failed"))
-						--	tester = components.new
-						--	return
-						--end 
-					end
-				end
-			end
-		end
-		
-		local output = GameObject:new { gameobj = clonobj }
-		output.components = clonobj:call("get_Components"):get_elements()
-		return output
-	end
-end
-]]
 --Check a SystemArray typedef for what trypedef the array contains. Caches results
 local cached_array_typedefs = {}
 local function evaluate_array_typedef_name(typedef, td_name)
@@ -3527,10 +3132,6 @@ deferred_call = function(managed_object, args, index, on_frame)
 			
 			local try, out
 			local vardata = type(args.vardata)=="table" and args.vardata
-			--[[if not vardata and args.obj and _data[args.obj] then 
-				vardata = (args.field and _data[args.obj].field_data[args.field]) or  args.obj[args.func:sub(1,4)]
-				args.vardata = vardata
-			end]]
 			local name = logv(managed_object, nil, 0) .. " " .. (vardata and vardata.name or "") .. (index or "")
 			
 			if old_deferred_calls[name] and old_deferred_calls[name].Error then
@@ -3593,17 +3194,12 @@ deferred_call = function(managed_object, args, index, on_frame)
 				end
 				
 				if args.field ~= nil and args.func == nil then
-					--[[if vardata and vardata.is_lua_type == "vec" or vardata.is_lua_type == "quat" or vardata.is_lua_type == "string" or vardata.is_lua_type == "mat" then
-						value = value_to_obj(value, vardata.ret_type)
-					end]]
 					try, out = pcall(managed_object.set_field,  managed_object, args.field, value) --fields
 					--managed_object:set_field(args.field, value); try = true
 					--out = try and tics or out
 				else--if args.field == nil then
 					if type(value) == "table" then 
-						--[[for i, arg in ipairs(value) do 
-							value[i] = (arg~="__nil") and arg or nil
-						end]]
+	
 						if args.func then
 							try, out = pcall(managed_object.call,	managed_object, args.func, 	table.unpack(value)) --methods by name with args 
 						elseif args.method then
@@ -3679,19 +3275,6 @@ local function value_to_obj(value, ret_type, ret_typename)
 	end
 	return value, "no func"
 end
-
---[[
---Convert
-function create_array_object(tbl, ret_type)
-	ret_type = ret_type.get_full_name and ret_type:get_full_name() or ret_type
-	local new_arr = (sdk.create_instance(ret_type) or sdk.create_instance(ret_type, true)):add_ref()
-	new_arr:call(".ctor")
-	new_arr:call("set_Count", #tbl)
-	for i, element in ipairs(tbl) do 
-		new_arr:call("SetValue(System.Object, System.Int32)", element, i-1)
-	end
-	return new_arr
-end]]
 
 --Functions for displaying objects, tables and variables as text -------------------------------------------------------------------------------
 --Format a vector2, vector3, vector4 or Quaternion as text:
@@ -4520,10 +4103,6 @@ local VarData = {
 		o.mysize = (o.get and (o.get:get_num_params() == 1)) and (((o.count and o.count:call(obj)) or (o_tbl.counts and o_tbl.counts.method and o_tbl.counts.method:call(obj))) or 0) or nil
 		o.mysize = (type(o.mysize)=="number") and o.mysize or nil
 		
-		--[[local cnt_mthod = (o.get and (o.get:get_num_params() == 1)) and o.count or (o_tbl.counts and o_tbl.counts.method)
-		o.mysize = cnt_mthod and ({pcall(cnt_mthod.call, cnt_mthod, obj)})
-		o.mysize = (o.mysize and o.mysize[1] and o.mysize[2]) or (cnt_mthod and 0) or nil]]
-		
 		if o.mysize then --this whole thing gets so so much more complicated from counting list props as props
 			o.value_org = {}
 			for ii=0, o.mysize-1 do
@@ -4602,21 +4181,6 @@ local VarData = {
 			SettingsCache.increments[rt_name].increment = o.increment
 		end
 		
-		--o.is_sfix = o.ret_type:is_a("via.sfix") or nil
-		
-		--[[if (type(o.value_org)=="table") and o_tbl.counts and o_tbl.counts.method and o_tbl.xform and o_tbl.counts.method:get_name():find("Joint") then
-			skeleton = _data[o_tbl.xform].skeleton or lua_get_system_array(o_tbl.xform:call("get_Joints") or {}, nil, true)
-			if skeleton and skeleton[1].call then  for i=1, #skeleton do skeleton[i] = skeleton[i]:call("get_Name") end end --set up a list of bone names for arrays relating to bones
-			if skeleton and #skeleton == #o.value_org then -- (math.floor(#skeleton / 2) <= #o.value_org) then --((o.count and o.count:call(obj)) or o_tbl.counts.method:call(obj))
-				if (#skeleton < ((o.count and o.count:call(obj)) or o_tbl.counts.method:call(obj))) then
-					for i=1, (((o.count and o.count:call(obj)) or o_tbl.counts.method:call(obj)) - #skeleton) do 
-						table.insert(skeleton, o.ret_type:get_full_name())
-					end
-				end
-				o.skeleton = skeleton
-			end
-			_data[o_tbl.xform].skeleton = skeleton --keep a copy on the xform, without necessarily turning it into a REMgdObj 
-		end]]
 		
 		if o.field and o.value_org then
 			if o.field and (o.name == "_entries" or o.name == "mSlots") then
@@ -5014,39 +4578,6 @@ local REMgdObj = {
 		return setmetatable(o, self)
 	end,
 	
-	--[[
-	__new_minimal = function(self, obj, do_minimal, o)
-		
-		self = self:__new(obj, true)
-		if not self then return end
-		local o_tbl = _data[self.obj]
-		if not o_tbl then return end
-		local propdata = o_tbl.propdata
-		local obj = o_tbl.obj
-		
-		for i, method_name in ipairs(propdata.method_names) do
-			o_tbl.props = o_tbl.props or {}
-			if method_name:find("[Gg]et") == 1 then
-				method_name = method_name:sub(4, -1)
-				local method = propdata.getters[method_name]
-				if method then
-					local prop = {name=method_name, get=method, set=propdata.setters[method_name], count=propdata.counts[method_name], ret_type=method:get_return_type(), not_started=true }
-					table.insert(o_tbl.props, prop)
-				end
-			end
-		end
-		
-		for i, prop in ipairs(o_tbl.props) do 
-			if prop.get:get_num_params() == 0 then 
-				local try, out = pcall(prop.get.call, prop.get, o_tbl.obj)
-				if try then 
-					self[prop.name] = out
-				end
-			end
-		end
-		return self
-	end,
-	]]
 	
 	__set_owner = function(self, owned_obj)
 		local cv_tbl = _data[owned_obj] and _data[owned_obj]._
@@ -5166,61 +4697,6 @@ local REMgdObj = {
 	end,
 }
 
---Function to initialize REMgdObj, used once at the start of the script
---Binds managed objects to a global dictionary, _data, which allows them to be indexed like normal tables
---[[add_to_REMgdObj = function(obj)
-	log.info("Adding " .. tostring(obj) .. " to REMgdObj")
-	local mt = getmetatable(obj)
-	local oldIndex = mt.__index
-	local oldNewIndex = mt.__newindex
-	mt.__index = function(self, key)
-		if _data[self] and _data[self][key] then
-			return _data[self][key] 
-		elseif key ~= "_" then
-			return oldIndex(self, key)
-		end
-	end
-	mt.__newindex = function(self, key, value)
-		--using "REMgdObj" as the key will call the constructor:
-		if key == "REMgdObj" then 
-			_data[self] = REMgdObj:__new(self, value) or {}
-		--using "_" as the key will create an attached data table:
-		elseif key == "_" then
-			_data[self] = _data[self] or {}
-			_data[self][key] = value
-		else 
-			try, out = pcall(oldNewIndex, self, key, value) 
-			if not try then
-				log.debug(out)
-				log.info(out)
-			end
-		end
-	end
-end]]
-
---[[
-add_to_REMgdObj = function(obj)
-	log.info("Adding " .. tostring(obj) .. " to REMgdObj")
-	local mt = getmetatable(obj)
-	local oldIndex = mt.__index
-	local oldNewIndex = mt.__newindex
-	mt.__index = function(self, key)
-		local try, output = pcall(oldIndex, self, key)
-		if try and output ~= nil then return output end
-		return _data[self] and _data[self][key]
-	end
-	mt.__newindex = function(self, key, value)
-		if key == "REMgdObj" then --using "REMgdObj" as the key will call the constructor
-			_data[self] = REMgdObj:__new(self) or {}
-		elseif not pcall(oldNewIndex, self, key, value) then
-			_data[self] = _data[self] or {}
-			_data[self][key] = value
-		end
-	end
-	REMgdObj.__types[mt.__type.name] = true
-	--re.msg_safe("added " .. tostring(mt.__type.name), 124823958)
-end]]
---atr = add_to_REMgdObj
 
 --Function to make an REMgdObj object
 create_REMgdObj = function(managed_object, keep_alive, used_props)
@@ -5229,18 +4705,6 @@ create_REMgdObj = function(managed_object, keep_alive, used_props)
 		_data[managed_object].keep_alive = keep_alive
 		return _data[managed_object]
 	end
-	--[[local mt = getmetatable(managed_object)
-	if mt and mt.__type then
-		if not REMgdObj.__types[mt.__type.name] or _data[managed_object] == 0 then
-			add_to_REMgdObj(managed_object)
-		end
-		managed_object.REMgdObj = used_props
-		if managed_object.__update then
-			managed_object:__update(123)
-			_data[managed_object].keep_alive = keep_alive
-			return _data[managed_object]
-		end
-	end]]
 end
 
 --Add BehaviorTrees to REMgdObj:
@@ -5261,21 +4725,7 @@ getmetatable(scene).__is_obj = true
 getmetatable(REMgdObj_objects.ValueType).__is_vt = true
 getmetatable(static_funcs.mk_gameobj).__is_method = true
 --getmetatable(REMgdObj_objects.BHVT).__is_bhvt = true
---[[
---Create initial REMgdObj:
-if REMgdObj_objects then
-	for name, object in pairs(REMgdObj_objects) do
-		if not pcall(function()
-			add_to_REMgdObj(object)
-			if object.__type then
-				REMgdObj.__types[object.__type.name] = true
-			end
-		end) then
-			log.info(tostring(object) .. " add_to_REMgdObj type error")
-		end
-	end
-	--REMgdObj_objects = nil
-end]]
+
 
 mathex = tds.mathex and (sdk.create_instance(tds.mathex:get_full_name(), true) or sdk.create_instance(tds.mathex:get_full_name(), true))
 mathex = mathex and mathex:add_ref()
@@ -5381,9 +4831,6 @@ local function show_imgui_text_box(display_name, value, o_tbl, can_set, tkey, is
 	o_tbl.cached_text = o_tbl.cached_text or {}
 	local str_name = value or ""
 	local changed, was_changed
-	--[[if value and type(value) ~= "string" then
-		str_name = value:call("ToString()")
-	end]]
 	
 	if str_name and can_set and o_tbl.cached_text[tkey] then 
 		
@@ -5556,38 +5003,6 @@ local function imgui_chain_settings(via_chain, xform, game_object_name)
 		
 		changed, o_tbl.show_all_joints = imgui.checkbox("Show All Joints", o_tbl.show_all_joints)
 		
-		--[[if _G.RE_Resource and BitStream then
-			if o_tbl.chain_save_path_exists then
-				local real_path = o_tbl.chain_save_path_text:gsub("^reframework/data/", "")
-				if imgui.button("Save Chain") then
-					local chainFile = ChainFile:new{filepath=real_path, mobject=via_chain}
-					if chainFile:save(real_path) then 
-						re.msg("Saved Chain file to:\n" .. o_tbl.chain_save_path_text)
-					end
-					o_tbl.ChainFile = chainFile
-				end
-				resource_ctx_menu("ChainFile", real_path, o_tbl)
-				imgui.same_line()
-			end
-			
-			if o_tbl.chain_save_path_text==nil then
-				local path = via_chain:get_ChainAsset() and via_chain:get_ChainAsset():get_ResourcePath() or ""
-				o_tbl.chain_save_path_text = "$natives/" .. (((sdk.get_tdb_version() <= 67) and "x64/") or "stm/") .. path .. ((ChainFile and ChainFile.extensions[game_name]) or "")
-			end
-			
-			changed, o_tbl.chain_save_path_text = imgui.input_text("Modify Chain File" .. ((o_tbl.chain_save_path_exists and "") or " (Does Not Exist)"), o_tbl.chain_save_path_text) --
-			if changed or o_tbl.chain_save_path_exists==nil then
-				o_tbl.chain_save_path_exists = BitStream.checkFileExists(o_tbl.chain_save_path_text:gsub("^reframework/data/", ""))
-			end
-			
-			local tooltip_msg = "Access files in the 'REFramework\\data\\' folder.\nStart with '$natives\\' to access files in the natives folder.\nInput the location of the chain file for this via.motion.Chain"
-			imgui.tooltip(tooltip_msg)
-			
-			if o_tbl.ChainFile and imgui.tree_node("ChainFile") then
-				o_tbl.ChainFile:displayImgui()
-				imgui.tree_pop()
-			end
-		end]]
 		
 		for i, group in ipairs(chain_groups) do 
 		
@@ -5667,10 +5082,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		value = element
 	elseif field then 
 		value = vd.value
-		--[[value = parent_managed_object[name:match("%<(.+)%>") or name]
-		if value == nil then 
-			value = field:get_data(parent_managed_object)
-		end]]
+		
 	elseif prop.get then --and value == nil then 
 		if not prop.set then 
 			display_name = display_name .. "*"
@@ -5824,10 +5236,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 	--managed objects and valuetypes:
 	elseif (value and not (value.__is_mat4)) and ((vd.is_obj or vd.is_vt) or (vd.can_index and (_data[value] or tostring_value:find("::ValueType") or ({pcall(sdk.is_managed_object, value)})[2] == true))) then --value.x or 
 		is_obj = true
-		--[[if imgui.tree_node_str_id(key_name .. name .. "M", display_name .. (vd.mysize and (" (" .. vd.mysize .. ")") or "")) then
-			read_imgui_element(vd)
-			imgui.tree_pop()
-		end]]
+
 		local field_pd
 		local count = vd.array_count or (not o_tbl.propdata and vd.mysize)
 		local do_update = o_tbl.clear --or random(16)
@@ -6212,11 +5621,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 						editable_table_field("new_arr_elems", vd.new_arr_elems, vd, "New Array Elements", {always_show=true, new_key=vd.new_key})
 					end
 					
-					--[[if vd.new_method then
-						editable_table_field("new_method", vd.new_method, vd, "New Method")
-						editable_table_field("new_target", vd.new_target, vd, "New Target")
-					end]]
-					
+	
 					if vd.new_value then
 						imgui.same_line()
 						if imgui.button("Set New Value") then
@@ -6279,11 +5684,7 @@ local function show_managed_objects_table(parent_managed_object, tbl, prop, key_
 		local function display_element(element, idx, key)
 			local element_name = (sdk.is_managed_object(element) and element:get_type_definition():get_full_name()) or item_type:get_full_name()--arr_tbl.element_names[i]
 			
-			--local var_metadata = prop or (field and o_tbl.field_data[name:match("%<(.+)%>") or name]
-			--[[if not element_name:find(element:get_type_definition():get_full_name()) then
-				element_name = element:get_type_definition():get_name() .. "	\"" .. element_name .. "\""
-				arr_tbl.element_names[idx] = element_name
-			end]]
+	
 			
 			local disp_name = (idx-1) .. ". " .. ((key and "["..key.."] = ") or "") .. (element_name or tostring(element)) .. ((arr_tbl.set or o_tbl.is_arr) and "" or "*") 
 			
@@ -6295,11 +5696,6 @@ local function show_managed_objects_table(parent_managed_object, tbl, prop, key_
 				arr_tbl.element_Names[idx] = arr_tbl.element_Names[idx] or get_mgd_obj_name(element)
 				if imgui.tree_node_colored(idx, disp_name, arr_tbl.element_Names[idx] or "") then
 					tbl_changed, element = imgui.managed_object_control_panel(element, key_name .. element_name .. idx, element_name)
-					--[[if _data[element] then
-						_data[element].Name = _data[element].Name or disp_name
-						arr_tbl.element_names[idx] = _data[element].Name
-						--_data[element].is_open = true
-					end]]
 					imgui.tree_pop()
 				--elseif _data[element] then
 				--	_data[element].is_open = nil
@@ -6619,35 +6015,8 @@ function imgui.managed_object_control_panel(m_obj, key_name, field_name)
 					end
 					
 					if _data[m_obj] and imgui.tree_node("_data") then 
-						--[[if o_tbl and not o_tbl.hierarchy then
-							local o_tbl = o_tbl
-							local owner = o_tbl.obj
-							o_tbl.hierarchy = {}
-							while owner do 
-								--local name = _data[owner].name_full .. (((_data[owner].Name and (_data[owner].name_full ~= _data[owner].Name) and _data[owner].Name ~= "") and (" " .. _data[owner].Name)) or "")
-								--if not _data[owner].item_type then
-									table.insert(o_tbl.hierarchy, {name=_data[owner].Name, object=owner})
-								--end
-								owner = _data[owner].owner
-							end
-							o_tbl.hierarchy = reverse_table(o_tbl.hierarchy)
-						end]]
-						--if imgui.tree_node("[Lua]") then 
-							read_imgui_element(o_tbl)
-						--	imgui.tree_pop()
-						--end
-						--read_imgui_element(_data[m_obj])
 						imgui.tree_pop()
 					end
-					
-					--[[if o_tbl and o_tbl.counts then 
-						changed, o_tbl.counts.idx = imgui.combo("Generic Count Method", o_tbl.counts.idx or 1, o_tbl.counts.counts_names)
-						if changed then 
-							o_tbl.counts.method = o_tbl.counts.counts[ o_tbl.counts.counts_names[o_tbl.counts.idx] ] 
-							for i, prop in ipairs(o_tbl.props) do prop.cached_value = nil; prop.elements = nil end
-							o_tbl.elements = nil
-						end
-					end]]
 					
 					if o_tbl.counts then 
 						changed, o_tbl.counts.idx = imgui.combo("Generic Count Method", o_tbl.counts.idx or 1, o_tbl.counts.counts_names)
@@ -6663,21 +6032,6 @@ function imgui.managed_object_control_panel(m_obj, key_name, field_name)
 					if static_funcs.mini_console then
 						static_funcs.mini_console(m_obj, game_object_name .. key_name) 
 					end
-					--[[elseif _data[m_obj] then
-						local str_key = (type(key) == "string" and key) or tostring(m_obj:get_address())
-						if imgui.tree_node_str_id(str_key .. "M", "_data") then
-							read_imgui_pairs_table(_data[m_obj], str_key)
-							imgui.tree_pop()
-						end
-						if o_tbl and o_tbl.counts then 
-							imgui_changed, o_tbl.counts.idx = imgui.combo("Generic Count Method", o_tbl.counts.idx or 1, o_tbl.counts.counts_names)
-							if imgui_changed then 
-								metadata_methods[o_tbl.name_full].counts_idx = o_tbl.counts.idx
-								o_tbl.counts.method = o_tbl.counts.counts[ o_tbl.counts.counts_names[o_tbl.counts.idx] ] 
-								o_tbl.clear = true
-							end
-						end
-					end]]
 
 					imgui.tree_pop()
 				end
@@ -6705,22 +6059,6 @@ function imgui.managed_object_control_panel(m_obj, key_name, field_name)
 				end
 			elseif o_tbl.name == "Chain" then
 				imgui_chain_settings(m_obj, o_tbl.xform, game_object_name)
-			--[[elseif o_tbl.name == "Motion" and EMVSettings and o_tbl.props_named["Layer"].mysize > 0 then --Embedded animation controller, requires Enhanced Model Viewer
-				local tmp = forced_mode  --temporary swap
-				if not o_tbl.go or not o_tbl.go.end_frame then
-					local gameobj = o_tbl.gameobj or m_obj:call("get_GameObject")
-					o_tbl.go = GameObject:new_AnimObject{gameobj=gameobj, forced_mode=true}
-					forced_mode = o_tbl.go  --temporary swap
-					o_tbl.go:update_components()
-					o_tbl.go:get_current_bank_name()
-					o_tbl.go:build_banks_list()
-				elseif o_tbl.go.layer and (o_tbl.go.face_mode or not o_tbl.go.same_joints_constraint) and imgui.tree_node_str_id(o_tbl.go.name .. "Anims", "Animations") then 
-					o_tbl.go:update_AnimObject(nil, o_tbl.go)
-					forced_mode = o_tbl.go --temporary swap
-					show_imgui_animation(o_tbl.go, nil, true)
-					imgui.tree_pop()
-				end
-				forced_mode = tmp  --temporary swap]]
 			elseif o_tbl.type:is_a("via.behaviortree.BehaviorTree") then 
 				o_tbl.gameobj = o_tbl.gameobj or get_GameObject(m_obj)
 				o_tbl.go = o_tbl.go or (o_tbl.gameobj and held_transforms[o_tbl.xform or o_tbl.gameobj:call("get_Transform")] or GameObject:new{gameobj=o_tbl.gameobj})
@@ -7287,22 +6625,6 @@ local Material = {
 				end) --random ass nonsense bug in RE7
 			end
 		end
-		
-		--[[if self.tex_num > 0 and not self.textures[1] then 
-			self.tex_idxes = {}
-			for i=1, self.tex_num do
-				local texture = self.mesh:call("getMaterialTexture", self.id, i-1)
-				if not texture then 
-					self.tex_num = i-1
-					break 
-				end
-				add_resource_to_cache(texture:add_ref())
-				table.insert(self.textures, texture)
-			end
-			if self.saved_variables then
-				self.saved_variables.texs = self.textures
-			end
-		end]]
 	end,
 }
 
@@ -7510,30 +6832,6 @@ show_imgui_mats = function(anim_object)
 		mat:draw_imgui_mat()
 	end
 end
-
---Function to manage saved materials:
---[[local function imgui_saved_materials_menu() 
-	local idx = 0
-	if imgui.button("Clear Saved Materials") then 
-		_G.saved_mats = {}
-	end
-	for key, sub_tbl in orderedPairs(_G.saved_mats) do
-		idx = idx + 1
-		local xform, obj = next(sub_tbl.__objects or {})
-		if obj then 
-			if imgui.tree_node_str_id(key .. idx, key) then 
-				obj.materials.open = 2
-				imgui_anim_object_viewer(obj)
-				imgui.tree_pop()
-			elseif obj.materials.open == 2 then
-				obj.materials.open = nil
-			end
-		elseif imgui.tree_node_str_id(key .. idx, key) then
-			read_imgui_pairs_table(sub_tbl, key .. idx)
-			imgui.tree_pop()
-		end
-	end
-end]]
 
 --Handler for full GameObject/GameObject/GameObject type classes:
 local function imgui_anim_object_viewer(anim_object, obj_name, index)
@@ -7834,11 +7132,6 @@ local function show_collection()
 			cd.worldmatrix = cd.sel_obj.xform:call("get_WorldMatrix")
 		end
 		moved_last_obj, cd.worldmatrix = draw.gizmo(1234567890, cd.worldmatrix)
-		--[[if moved_last_obj and last_rot and cd.sel_obj and last_rot == cd.worldmatrix:to_quat() then --if only moving position, update saved rotation to object's current rotation
-			local new_pos = cd.worldmatrix[3]
-			cd.worldmatrix = cd.sel_obj.xform:call("get_WorldMatrix")
-			cd.worldmatrix[3] = new_pos
-		end]]
 	end
 	
 	imgui.text("Gizmo options:")
@@ -8314,13 +7607,6 @@ local BHVTNode = {
 			o.unl_actions[i] = action_obj
 		end
 		
-		--[[for i, transition in ipairs(o.obj:get_transitions()) do 
-			if transition.get_full_name then 
-				o.transitions = o.transitions or {}
-				local transition_obj = self:new{obj=transition, owner=o.owner, tree_idx=o.tree_idx}
-				o.transitions[#o.transitions+1] = transition_obj
-			end
-		end]]
 		
 		self.cached_nodes[o.obj] = o
 		self.__index = self
@@ -8506,13 +7792,7 @@ BHVT = {
 						end
 						imgui.tree_pop()
 					end
-					
-					--[[if node.transitions and imgui.tree_node("Transitions") then
-						for i, transition_node_obj in pairs(node.transitions) do 
-							self:imgui_bhvt_nodes(transition_node_obj, transition_node_obj.name, imgui_keyname, dfcall_template, dfcall_json)
-						end
-						imgui.tree_pop()
-					end]]
+
 					imgui.tree_pop()
 				end
 			--end
@@ -8574,24 +7854,6 @@ BHVT = {
 					if changed then
 						self.obj:call("set_PuppetMode", self.puppet_mode)
 					end
-					--[[changed, self.show_merge_lists = imgui.checkbox("Show Merge Lists", self.show_merge_lists)
-					if changed then
-						nodes_history_names = nodes_history_names or {}
-						nodes_history_names[self.name] = {}
-						for name, tbl in orderedPairs(CachedActions) do
-							if tbl[self.name] and get_table_size(tbl[self.name]) > 1 then
-								table.insert(nodes_history_names, name)
-							end
-						end
-					end
-					
-					if self.show_merge_lists then
-						changed, self.merge_name_idx = imgui.combo("[" .. i .."] Merge List", self.merge_name_idx or 1, nodes_history_names) 
-						if changed and CachedActions[ nodes_history_names[self.merge_name_idx] ][self.name] then
-							CachedActions[self.object.name][self.name] = merge_tables(CachedActions[self.object.name][self.name], CachedActions[ nodes_history_names[self.merge_name_idx] ][self.name])
-							self:set_node(nil, 0, 1)
-						end
-					end]]
 				end
 
 				
@@ -8644,32 +7906,6 @@ BHVT = {
 					end
 					imgui.tree_pop()
 				end
-				
-				--[[_data[self.obj].sequencer = _data[self.obj].sequencer or (not BHVT.nodes_failed and MoveSequencer:new({obj=self.obj}, _data[self.obj].sequencer)) or {}
-				
-				if _data[self.obj].sequencer.display_imgui then --next(_data[self.obj].sequencer.Hotkeys) then
-					local seq_detach = _data[self.obj].sequencer and _data[self.obj].sequencer.detach
-					if seq_detach and imgui.begin_window("Sequencer: " .. self.object.name .. " " .. self.name, true, SettingsCache.transparent_bg and 128 or 0) == false then
-						_data[self.obj].sequencer.detach = false
-					end
-					
-					if seq_detach or imgui.tree_node("Sequencer") then 
-						if ((imgui.button("Reset") or imgui.same_line()) or not _data[self.obj].sequencer) then
-							_data[self.obj].sequencer = MoveSequencer:new({obj=self.obj}, _data[self.obj].sequencer)
-						end
-						_data[self.obj].sequencer:display_imgui()
-						imgui.spacing()
-						if not seq_detach then
-							imgui.tree_pop()
-						end
-					elseif _data[self.obj].sequencer then
-						_data[self.obj].sequencer.display = nil
-					end
-					
-					if seq_detach then
-						imgui.end_window()
-					end
-				end]]
 				
 				if imgui.tree_node(self.name) then
 					imgui.managed_object_control_panel(self.obj)
@@ -9547,14 +8783,6 @@ GameObject = {
 				for m, layer in ipairs(aw.layers) do
 					aw.layer_main = aw.layer_main or layer:getMotionNode(0) and layer
 				end
-				--[[if self.components_named.CharacterController then 
-					tmp_funcs[self.components_named.CharacterController] = function() 
-						self.components_named.CharacterController:warp()
-					end
-				end
-				if self.components_named.RequestSetCollider then
-					self.components_named.RequestSetCollider:set_Enabled(false)
-				end]]
 			else
 				
 				changed, aw.do_mirror = imgui.checkbox("Mirror", aw.do_mirror)
@@ -9776,9 +9004,6 @@ GameObject = {
 		if self.parent_index == self.index_h then 
 			imgui.same_line()
 			imgui.text("[No Parent]")
-			--[[if self.parents_list.names[self.parent_index] ~= " " then 
-				self.parents_list = {} 
-			end]]
 		end
 		
 		local parent_name = self.parents_list.edited_names[self.parent_index]
@@ -9881,36 +9106,6 @@ GameObject = {
 		end
 		
 		if not self.same_joints_constraint or not self.parent then
-			--[[imgui_changed, self.lookat_enabled = imgui.checkbox("LookAt", self.lookat_enabled)
-			if self.lookat_enabled then 
-				if self.joints and not self.same_joints_constraint then
-					if not self.joints_names then 
-						self.joints_names = {}
-						for i, joint in ipairs(self.joints) do  table.insert(self.joints_names, joint:call("get_Name")) end
-					end
-					if self.joints_names[1] then
-						imgui.same_line()
-						imgui_changed, self.lookat_joint_index = imgui.combo("Set Source Bone", self.lookat_joint_index, self.joints_names)
-						--imgui.text("                    "); imgui.same_line()
-						if imgui.button(self.joints[self.lookat_joint_index].frozen and " Unfreeze " or "   Freeze   ") then 
-							self.joints[self.lookat_joint_index].frozen = not not not self.joints[self.lookat_joint_index].frozen
-							self.lookat_joints = self.lookat_joints or {}
-							if self.joints[self.lookat_joint_index].frozen then
-								self.lookat_joints[self.joints[self.lookat_joint_index] ] = self.joints[self.lookat_joint_index]:call("get_LocalRotation")
-							else
-								self.lookat_joints[self.joints[self.lookat_joint_index] ] = nil
-							end
-						end
-						imgui.same_line()
-					end
-				end
-				self.lookat_index = self.lookat_index or (selected and find_index(self.parents_list, selected.name_w_parent)) or find_index(self.parents_list, "Main Camera")
-				imgui_changed, self.lookat_index = imgui.combo("Set Target", self.lookat_index, self.parents_list)
-				self.lookat_obj = sorted_held_transforms[self.lookat_index]
-				self.lookat_enabled = not not self.lookat_obj
-			else
-				self.lookat_joints = nil
-			end]]
 		end
 		
 		if imgui.tree_node("GameObject") then
@@ -10221,10 +9416,6 @@ GameObject = {
 				end
 			end
 		end
-		--[[if changed and figure_mode and self.mesh_name_short then
-			EMVCache.custom_lists[self.mesh_name_short] = EMVCache.custom_lists[self.mesh_name_short] or {}
-			EMVCache.custom_lists[self.mesh_name_short].Display = self.display
-		end]]
 		self.toggled_display = self.display
 		--log.info("set " .. self.name .. " to " .. tostring(self.display) .. ", draw is " .. tostring(self.gameobj:call("get_Draw")) .. ", drawself is " .. tostring(self.gameobj:call("get_DrawSelf")))
 	end,
@@ -10299,17 +9490,7 @@ GameObject = {
 				end
 			end
 			
-			--[[if not (figure_mode or forced_mode) and (self.joints and (self.show_joints or (self.poser and self.poser.is_open))) then
-				self.joint_positions = self.joint_positions or {}
-				for i, joint in pairs(self.joints) do 
-					if sdk.is_managed_object(joint) then 
-						self.joint_positions[joint] = { joint:call("get_LocalMatrix"), joint:call("get_WorldMatrix") }
-					else
-						self.joint_positions, self.show_joints, self.poser = nil
-					end
-				end
-			end]]
-			
+
 			if self.display_transform then 
 				shown_transforms[self.xform] = self
 			end
@@ -10320,15 +9501,6 @@ GameObject = {
 			end]]
 			if SettingsCache.Collection_data.sel_obj and SettingsCache.Collection_data.sel_obj.xform == self.xform then 
 				SettingsCache.Collection_data.sel_obj = self 
-				--[[if self.motion and self.motion:call("getDynamicMotionBankCount") == 0 then
-					--re.msg_safe("creating dbank", 12355346)
-					local new_dbank = sdk.create_instance("via.motion.DynamicMotionBank"):add_ref()
-					if new_dbank then 
-						new_dbank :call(".ctor")
-						self.motion:call("setDynamicMotionBankCount", 1)
-						self.motion:call("setDynamicMotionBank", 0, new_dbank)
-					end
-				end]]
 			end
 			if held_transforms[self.xform] and held_transforms[self.xform]~=self then
 				self = Utils.merge_tables(self, held_transforms[self.xform], true)
@@ -10422,13 +9594,6 @@ local function init_settings()
 			SettingsCache.exception_methods = {}
 		end
 		
-		--[[CachedGlobals = jsonify_table(json.load_file("EMV_Engine\\CachedGlobals.json") or {}, true)
-		for key, value in pairs(CachedGlobals) do 
-			if sdk.is_managed_object(value) then
-				_G[key] = value
-			end
-		end]]
-		
 		Hotkey.used = jsonify_table(json.load_file("EMV_Engine\\Hotkeys.json") or {}, true)
 		CachedActions = jsonify_table(json.load_file("EMV_Engine\\CachedActions.json") or {}, true)
 		Collection = jsonify_table(json.load_file("EMV_Engine\\Collection.json") or {}, true)
@@ -10439,15 +9604,6 @@ local function dump_settings(no_resources)
 	if SettingsCache.load_json then 
 		json.dump_file("EMV_Engine\\SettingsCache.json", jsonify_table(SettingsCache))
 		json.dump_file("EMV_Engine\\CachedActions.json", jsonify_table(CachedActions))
-		--[[CachedGlobals = {}
-		if not isRE7 and not isRE4 then
-			for key, value in pairs(_G) do 
-				if type(key) == "string" and ({pcall(sdk.is_managed_object, value)})[2] == true then 
-					CachedGlobals[key] = value
-				end
-			end
-			json.dump_file("EMV_Engine\\CachedGlobals.json",  jsonify_table(CachedGlobals, false))
-		end]]
 		json.dump_file("EMV_Engine\\Collection.json",  jsonify_table(Collection, false, {convert_lua_objs=true}))
 		pcall(function()
 			if not no_resources then
@@ -10838,10 +9994,6 @@ end)
 
 --On Draw UI (Show Settings) ---------------------------------------------------------------------------------------------------------------------------------------
 re.on_draw_ui(function()
-	
-	--[[if counter > 0 then
-		imgui.text("Call Count: " .. tostring(counter))
-	end]]
 	
 	local csetting_was_changed, special_changed
 	
