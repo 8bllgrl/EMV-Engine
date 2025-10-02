@@ -225,23 +225,23 @@ end
 -- end
 
 --Get a random number in a range
-local function random_range(start, finish)
-	if start >= finish then return start end
-	math.randomseed(math.floor(os.clock()*100))
-	return math.random(start, finish)
-end
+-- local function random_range(start, finish)
+-- 	if start >= finish then return start end
+-- 	math.randomseed(math.floor(os.clock()*100))
+-- 	return math.random(start, finish)
+-- end
 
 --Get dictionary size
-local function get_table_size(tbl) 
-	if type(tbl) ~= "table" then return 0 end
-	local i, last_key, first_key = 0
-	for k, v in pairs(tbl) do 
-		i = i + 1
-		first_key = first_key or k
-		last_key = k
-	end
-	return i, first_key, last_key
-end
+-- local function get_table_size(tbl) 
+-- 	if type(tbl) ~= "table" then return 0 end
+-- 	local i, last_key, first_key = 0
+-- 	for k, v in pairs(tbl) do 
+-- 		i = i + 1
+-- 		first_key = first_key or k
+-- 		last_key = k
+-- 	end
+-- 	return i, first_key, last_key
+-- end
 
 --Test if a table is an array
 local function isArray(t)
@@ -443,7 +443,7 @@ local function qsort(tbl, key, ascending)
 				if isArray(tbl[1][key]) then
 					table.sort (tbl, function (obj1, obj2) return #obj1[key] < #obj2[key]  end)
 				else
-					table.sort (tbl, function (obj1, obj2) return get_table_size(obj1[key]) < get_table_size(obj2[key]) end)
+					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) < Utils.get_table_size(obj2[key]) end)
 				end
 			else
 				table.sort (tbl, function (obj1, obj2) return obj1[key] < obj2[key] end)
@@ -453,7 +453,7 @@ local function qsort(tbl, key, ascending)
 				if isArray(test[key]) then 
 					table.sort (tbl, function (obj1, obj2) return #obj1[key] > #obj2[key]  end)
 				else
-					table.sort (tbl, function (obj1, obj2) return get_table_size(obj1[key]) > get_table_size(obj2[key]) end)
+					table.sort (tbl, function (obj1, obj2) return Utils.get_table_size(obj1[key]) > Utils.get_table_size(obj2[key]) end)
 				end
 			else
 				table.sort (tbl, function (obj1, obj2) return obj1[key] > obj2[key] end)
@@ -492,7 +492,7 @@ local function orderedNext(t, state)
     if state == nil then
 		local do_multitype = type(state) ~= "string" and type(state) ~= "number"
 		if SettingsCache.cache_orderedPairs then 
-			if not G_ordered[t] or (t.__orderedIndex and (#t.__orderedIndex ~= get_table_size(t))) then 
+			if not G_ordered[t] or (t.__orderedIndex and (#t.__orderedIndex ~= Utils.get_table_size(t))) then 
 				t.__orderedIndex = __genOrderedIndex(t , do_multitype)
 				G_ordered[t] = {ords=t.__orderedIndex, open=uptime}
 			end
@@ -1149,13 +1149,13 @@ local ImguiTable = {
 		else
 			if element.__type and not pcall(function() for k, v in pairs(element) do goto exit end ::exit:: end) then return element.__type.name end
 			if (element.new or element.update) and Utils.can_index(element) then --or (can_index(element) and element.new and (element.name .. ""))
-				name = elem_key .. ":	" .. tostring(element.name) .. "	[Object] (" .. get_table_size(element) .. " elements)"
+				name = elem_key .. ":	" .. tostring(element.name) .. "	[Object] (" .. Utils.get_table_size(element) .. " elements)"
 			elseif isArray(element) then
 				name = elem_key .. ":	[" .. #element .. " elements]" 
 			else
 				local mt = getmetatable(element)
 				local nm = element.name or (mt and mt.name)
-				name = elem_key .. ":	" .. (((nm and (tostring(nm) .. " ")) or (element.obj and (logv(element.obj, nil, 0) .. " "))) or "") .. " (" .. get_table_size(element) .. " elements)" --[dictionary] 
+				name = elem_key .. ":	" .. (((nm and (tostring(nm) .. " ")) or (element.obj and (logv(element.obj, nil, 0) .. " "))) or "") .. " (" .. Utils.get_table_size(element) .. " elements)" --[dictionary] 
 			end
 		end
 		return name
@@ -1166,7 +1166,7 @@ local ImguiTable = {
 		tbl = tbl or {}
 		self.tbl = self.tbl or {}
 		self.open = os.clock()
-		self.tbl_count = (self.is_array and #tbl) or get_table_size(tbl) or 1
+		self.tbl_count = (self.is_array and #tbl) or Utils.get_table_size(tbl) or 1
 		self.should_update = (self.tbl_count ~= #self.ordered_idxes + (self.skip_underscores or 0)) or nil
 		
 		if self.do_update and not self.ordered_by_dist then
@@ -1328,7 +1328,7 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 									name = name:gsub("%(%d.+ ", "(" .. #element .. " ")
 									e_d.is_array = true
 								elseif (e_d.is_array == false) or name:find("[yt]%] %(") then
-									name = name:gsub("%(%d.+ ", "(" .. get_table_size(element) .. " ")
+									name = name:gsub("%(%d.+ ", "(" .. Utils.get_table_size(element) .. " ")
 									e_d.is_array = false
 								end
 								tbl_obj.names[i] = name
@@ -3968,7 +3968,7 @@ local function log_value(value, value_name, layer_limit, layer, verbose, return_
 				elseif (not value.__pairs or pcall(value.__pairs, value)) then 
 					if verbose then 
 						local name = value.name or (_data[value] and (_data[value].Name or _data[value].name)) or (value.obj and log_value(value.obj, nil, 0, 0, verbose, true)) or ""
-						table.insert(msg, " [dictionary] " .. name .. " (" .. get_table_size(value) .. " elements) ")
+						table.insert(msg, " [dictionary] " .. name .. " (" .. Utils.get_table_size(value) .. " elements) ")
 					end
 					if (layer < layer_limit) or (layer_limit == -1) then
 						for key, val in orderedPairs(value) do  
@@ -4517,7 +4517,7 @@ local GUITree = {
 			end
 		end
 		
-		if get_table_size(self.child_lists) > 50 then
+		if Utils.get_table_size(self.child_lists) > 50 then
 			local k = next(self.child_lists)
 			for i=1, 50 do
 				self.child_lists[k] = nil
@@ -4998,7 +4998,7 @@ local REMgdObj = {
 						ret_type=field:get_type(),
 						index=i,
 					}
-					o.used_props[field_name] = get_table_size(propdata.field_names)
+					o.used_props[field_name] = Utils.get_table_size(propdata.field_names)
 				end
 			end
 		end
@@ -6332,7 +6332,7 @@ local function show_managed_objects_table(parent_managed_object, tbl, prop, key_
 	
 	local o_tbl = _data[parent_managed_object]
 	local arr_tbl = o_tbl.element_names and o_tbl or prop
-	arr_tbl.mysize = get_table_size(tbl)
+	arr_tbl.mysize = Utils.get_table_size(tbl)
 	local item_type = arr_tbl.item_type or arr_tbl.ret_type
 	local display_name = prop.name .. ((prop.field or prop.set) and "" or "*") .. ((arr_tbl.elements and (" (" .. arr_tbl.mysize .. ")")) or (" [" .. arr_tbl.mysize .. "]"))
 	local tbl_changed, tbl_was_changed = false, false
@@ -6861,7 +6861,7 @@ function imgui.managed_object_control_panel(m_obj, key_name, field_name)
 							end
 						end
 						
-						if (get_table_size(o_tbl.fields) > max_elem_sz) then
+						if (Utils.get_table_size(o_tbl.fields) > max_elem_sz) then
 							for j = 1, #ordered_idxes, max_elem_sz do 
 								j = math.floor(j)
 								local this_limit = (#ordered_idxes < j+max_elem_sz and #ordered_idxes) or j+max_elem_sz
@@ -7681,7 +7681,7 @@ local function show_collection()
 	
 	cd.setup = cd.setup or function(force)
 		cd.collection_xforms = (not force and cd.collection_xforms or {}) or {}
-		if force or not next(cd.collection_xforms) or (get_table_size(cd.collection_xforms) ~= get_table_size(Collection)) then
+		if force or not next(cd.collection_xforms) or (Utils.get_table_size(cd.collection_xforms) ~= Utils.get_table_size(Collection)) then
 			local new_collection = {}
 			for name, obj in pairs(Collection) do 
 				if obj.xform then
@@ -8765,7 +8765,7 @@ BHVT = {
 		if not self or not self.behaviortrees then return end
 		self.behaviortrees.total_actions = 0
 		for i, obj in ipairs(self.behaviortrees) do
-			self.behaviortrees.total_actions = self.behaviortrees.total_actions + get_table_size(obj.names)
+			self.behaviortrees.total_actions = self.behaviortrees.total_actions + Utils.get_table_size(obj.names)
 		end
 	end,
 	
@@ -8791,7 +8791,7 @@ BHVT = {
 			CachedActions[self.object.name][self.name][node_name] = CachedActions[self.object.name][self.name][node_name] or 1
 			self.names = CachedActions[self.object.name][self.name]
 			self.current_name_idx =  self.current_name_idx or (self.names_indexed and find_index(self.names_indexed, node_name)) --or self.current_name_idx
-			if not self.names[node_name] or not self.names_indexed or not self.current_name_idx or (get_table_size(self.names) ~= #self.names_indexed) then --
+			if not self.names[node_name] or not self.names_indexed or not self.current_name_idx or (Utils.get_table_size(self.names) ~= #self.names_indexed) then --
 				self.names[node_name] = true
 				self.names_indexed =  {}
 				for name, idx in orderedPairs(self.names) do
@@ -9797,7 +9797,7 @@ GameObject = {
 		self.parent = self.xform:call("get_Parent")
 		self.parents_list = self.parents_list or {names={}, names_to_xforms={}, edited_names={}}
 		
-		local htc = get_table_size(held_transforms)
+		local htc = Utils.get_table_size(held_transforms)
 		if not self.index_h_count or (self.index_h_count ~= htc) or (self.parent and (self.parent ~= self.parents_list.names_to_xforms[ self.parents_list.names[self.parent_index] ])) then 
 			imgui.same_line()
 			imgui.text("Sorting")
@@ -10867,7 +10867,7 @@ re.on_frame(function()
 							clear_object(object.xform)
 						end
 					end
-					if get_table_size(saved_mats[name].__objects) == 0 then saved_mats[name].__objects = nil end
+					if Utils.get_table_size(saved_mats[name].__objects) == 0 then saved_mats[name].__objects = nil end
 				end
 			end
 		end
@@ -11060,7 +11060,7 @@ EMV = {
 	cog_names = cog_names,
 	bool_to_number = bool_to_number,
 	number_to_bool = number_to_bool,
-	random_range = random_range,
+	random_range = Utils.random_range,
 	random = Utils.random,
 	create_REMgdObj = create_REMgdObj,
 	get_valid = get_valid,
@@ -11093,7 +11093,7 @@ EMV = {
 	get_trs = get_trs,
 	create_resource = create_resource,
 	get_folders = get_folders,
-	get_table_size = get_table_size,
+	get_table_size = Utils.get_table_size,
 	isArray = isArray,
 	arrayRemove = arrayRemove,
 	deferred_call = deferred_call,
