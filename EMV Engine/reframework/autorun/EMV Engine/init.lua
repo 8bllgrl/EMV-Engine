@@ -229,6 +229,12 @@ EMV_Dependencies.REFramework_Helpers = REFramework_Helpers
 -- 3. Initialize Display_Helpers, which can now safely access the required helper functions.
 Display_Helpers = require("Display_Helpers").create(EMV_Dependencies)
 
+-- Where i put some globals
+_G.logv = Display_Helpers.logv
+_G.msg_safe = Display_Helpers.msg_safe
+_G.to_obj = REFramework_Helpers.to_obj
+_G.get_GameObject = REFramework_Helpers.get_GameObject
+
 
 --local addresses of important functions and tables defined later:
 EMV = {}
@@ -353,20 +359,6 @@ local function orderedPairs(t)
     return orderedNext, t, nil
 end
 
---Call re.msg without displaying every single frame -----------------------------------------------------------------------------------------
-function re.msg_safe(msg, msg_id, frame_limit) 
-	re.msgs_this_frame = re.msgs_this_frame or 0
-	re.msgs_this_frame = re.msgs_this_frame + 1
-	frame_limit = frame_limit or 15
-	if re.msgs_this_frame > 10 then
-		log.info("Frame " .. tics .. " Exceeded re.msg output: " .. tostring(msg))
-	elseif msg_id and (not msg_ids[msg_id] or ((tics == msg_ids[msg_id])) or (frame_limit and ((tics - msg_ids[msg_id]) > frame_limit))) then
-		msg_ids[msg_id] = tics
-		re.msg(tostring(msg))
-	else
-		log.info(tostring(msg))
-	end
-end
 
 --Display if a value is null in imgui, for quick debugging
 local function imgui_check_value(value, name, force_show)
@@ -886,7 +878,7 @@ local ImguiTable = {
 		local name
 		is_obj = is_obj or ((is_obj ~= false) and REFramework_Helpers.is_obj_or_vt(element))
 		if is_obj then 
-			name = elem_key .. ":	" .. logv(element)
+			name = elem_key .. ":	" .. Display_Helpers.logv(element)
 		else
 			if element.__type and not pcall(function() for k, v in pairs(element) do goto exit end ::exit:: end) then return element.__type.name end
 			if (element.new or element.update) and Utils.can_index(element) then --or (can_index(element) and element.new and (element.name .. ""))
@@ -1138,11 +1130,11 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 									imgui.tree_pop()
 								end
 							elseif not editable or not editable_table_field(index, element, tbl, nil, edit_args) then 
-								imgui.text(logv(element, elem_key, 2, 0)) --primitives, strings, lua types, matrices
+								imgui.text(Display_Helpers.logv(element, elem_key, 2, 0)) --primitives, strings, lua types, matrices
 							end
 							tbl_obj.element_data[i] = (not do_update and tbl_obj.element_data[i]) or {is_vec=is_vec, is_vt=is_vt, is_obj=is_obj, enable_method=enable_method}
 						else
-							imgui.text(logv(ordered_idxes[i])) --unreadable sol classes
+							imgui.text(Display_Helpers.logv(ordered_idxes[i])) --unreadable sol classes
 						end
 					else
 						imgui.new_line()
@@ -1175,7 +1167,7 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 	end
 	
 	if is_obj then--or is_valid_obj(elem) then 
-		if imgui.tree_node_ptr_id(elem, (key and (key .. ": ") or "") .. logv(elem, nil, 0)) then 
+		if imgui.tree_node_ptr_id(elem, (key and (key .. ": ") or "") .. Display_Helpers.logv(elem, nil, 0)) then 
 			imgui.managed_object_control_panel(elem, key) 
 			imgui.tree_pop()
 		end
@@ -1184,7 +1176,7 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 	elseif editable and key and type(editable)=="table" then 
 		editable_table_field(key, elem, editable)
 	else
-		imgui.text(logv(elem, nil, 2, 0))
+		imgui.text(Display_Helpers.logv(elem, nil, 2, 0))
 	end
 end
 
@@ -2235,19 +2227,19 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 																local sub_mth = sub_pd.setters[fname]
 																if sub_mth then
 																	local so_tbl = _data[sub_obj] or create_REMgdObj(sub_obj)
-																	log.info("Sub table set " .. sub_mth:get_name() .. " " .. logv(val, nil, 0) .. " for " .. logv(sub_obj, nil, 0) )
+																	log.info("Sub table set " .. sub_mth:get_name() .. " " .. Display_Helpers.logv(val, nil, 0) .. " for " .. Display_Helpers.logv(sub_obj, nil, 0) )
 																	table.insert(deferred_calls[sub_obj], { func=sub_mth:get_name(), args=val , vardata=so_tbl.props_named[fname]} )
 																end
 															end
 														end
 													else --if (type(to_set[i])~="string") or not to_set[i]:find("%.%.%.") then
-														log.info("Multi-param set " .. method_name .. " " .. logv(to_set[i], nil, 0) .. " at idx " .. (i-1) .. " for " .. logv(obj, nil, 0) )
+														log.info("Multi-param set " .. method_name .. " " .. Display_Helpers.logv(to_set[i], nil, 0) .. " at idx " .. (i-1) .. " for " .. Display_Helpers.logv(obj, nil, 0) )
 														table.insert(deferred_calls[obj], { func=method:get_name(), args= (not method:get_param_types()[2]:is_primitive()) and {i-1, to_set[i]} or {to_set[i], i-1}, vardata=o_tbl.props_named[method_name] } )
 													end
 												end
 											end
 										elseif (to_set ~= nil) and (to_set ~= "") then
-											log.info("Setting " .. method_name .. " " .. logv(to_set, nil, 0) .. " for " .. logv(obj, nil, 0) )
+											log.info("Setting " .. method_name .. " " .. Display_Helpers.logv(to_set, nil, 0) .. " for " .. Display_Helpers.logv(obj, nil, 0) )
 											table.insert(deferred_calls[obj], { func=method:get_name(), args=to_set, vardata=o_tbl.props_named[method_name] } )
 										end
 									end
@@ -2930,7 +2922,7 @@ deferred_call = function(managed_object, args, index, on_frame)
 			
 			local try, out
 			local vardata = type(args.vardata)=="table" and args.vardata
-			local name = logv(managed_object, nil, 0) .. " " .. (vardata and vardata.name or "") .. (index or "")
+			local name = Display_Helpers.logv(managed_object, nil, 0) .. " " .. (vardata and vardata.name or "") .. (index or "")
 			
 			if old_deferred_calls[name] and old_deferred_calls[name].Error then
 				log.info("Skipping broken deferred call")
@@ -3017,9 +3009,9 @@ deferred_call = function(managed_object, args, index, on_frame)
 			if try == false then 
 				old_deferred_calls[name].Error = tostring(out)
 				old_deferred_calls[name].obj = managed_object
-				log.info("Failed, Deferred Call Error:\n" .. logv(args)) 
+				log.info("Failed, Deferred Call Error:\n" .. Display_Helpers.logv(args)) 
 			else--if not args.field and out==nil then
-				old_deferred_calls[name].output = (out~=nil) and logv(out) or tics
+				old_deferred_calls[name].output = (out~=nil) and Display_Helpers.logv(out) or tics
 				old_deferred_calls[name].obj = managed_object
 				if args.delayed_global_key ~= nil and _G[args.delayed_global_key] ~= nil  then 
 					_G[args.delayed_global_key] = out
@@ -3034,120 +3026,18 @@ deferred_call = function(managed_object, args, index, on_frame)
 	end
 end
 
---Functions for displaying objects, tables and variables as text -------------------------------------------------------------------------------
---Format a vector2, vector3, vector4 or Quaternion as text:
-local function vector_to_string(vector) 
-	return  vector and   ("["  .. vector.x .. ", " .. vector.y
-		.. (vector.z and (", " .. vector.z) or "")
-		.. (vector.w and (", " .. vector.w) or "") .. "]") or "nil"
-end
-
---Format a matrix4 as text
-local function mat4_to_string(mat, padding) 
-	padding = padding or ""
-	if mat then 
-		local transform_string = 	   "\n" .. padding ..  "[" .. mat[0].x .. ", " .. mat[0].y .. ", " .. mat[0].z .. ", " .. mat[0].w .. "]\n"
-		transform_string = transform_string .. padding ..  "[" .. mat[1].x .. ", " .. mat[1].y .. ", " .. mat[1].z .. ", " .. mat[0].w .. "]\n"
-		transform_string = transform_string .. padding ..  "[" .. mat[2].x .. ", " .. mat[2].y .. ", " .. mat[2].z .. ", " .. mat[0].w .. "]\n"
-		return 			   transform_string .. padding ..  "[" .. mat[3].x .. ", " .. mat[3].y .. ", " .. mat[3].z .. ", " .. mat[0].w .. "]"
-	end 
-	return "nil"
-end
-
---Format a table of bytes into a string
-local function log_bytes(bytes) --takes a std::vector<unsigned char>
-	local msg = {""}
-	for i, sbyte in ipairs(bytes) do
-		if i ~= 1 and (i-1) % 4 == 0 then table.insert(msg, "  ") end
-		if i ~= 1 and (i-1) % 16 == 0 then 
-			local str_msg = {""}
-			for b=i-16, i-1 do 
-				table.insert(str_msg, string.char(bytes[b]))
-			end
-			table.insert(msg, "	" .. string.gsub(table.concat(str_msg), "%c", ".") .. "\n")
-		end
-		table.insert(msg, string.format("%02X ", tostring(sbyte)))
-	end
-	return table.concat(msg)
-end
-
---Display the bytes of a managed object as text, similar to a hex editor
-local function read_bytes(obj)
-	local tab = {}
-	local sz = obj:get_type_definition():get_size()
-	if sz > 8192 then sz = 8192 end 
-	for i=1, sz do
-		table.insert(tab, obj:read_byte(i-1))
-	end
-	return "\n" .. log_bytes(tab)
-end
-
---Format all attributes of a method as text
-local function log_method(method, padding)
-	padding = (padding or "") .. "    "
-	local msg = {"\n" .. padding .. method:get_return_type():get_full_name() .. " " .. method:get_name() .. "("}
-	
-	local num_params = method:get_num_params()
-	local param_types = method:get_param_types()
-	local param_names = method:get_param_names()
-	for i, param in ipairs(param_names) do 
-		if i ~= 1 then table.insert(msg, ", ") end
-		table.insert(msg, param)
-	end
-	table.insert(msg, ")\n  " 
-		.. padding .. "Declaring Type: " .. method:get_declaring_type():get_full_name() .. "\n  " 
-		.. padding .. "Is Static: " .. tostring(method:is_static())
-	)
-	if num_params > 0 then 
-		--table.insert(msg, "\n  " .. padding .. "Num Params: " .. tostring(method:get_num_params()))
-		for i, param in ipairs(param_names) do 
-			table.insert(msg, "\n    " .. padding .. tostring(i) .. ". " .. param_types[i]:get_full_name() .. " " .. param)
-		end
-	end
-	return table.concat(msg)
-end
-
---Format all attributes of a field as text
-local function log_field(field, padding)
-	padding = (padding or "") .. "    "
-	return field:get_type():get_full_name() .. " " .. field:get_name()
-		.. "\n" .. padding .. "Declaring Type: " .. field:get_declaring_type():get_full_name()
-		.. "\n" .. padding .. "Offset from Base: " .. field:get_offset_from_base()
-		.. "\n" .. padding .. "Offset from FieldPtr: " .. field:get_offset_from_fieldptr()
-		.. "\n" .. padding .. "Flags: " .. tostring(field:get_flags())
-		.. "\n" .. padding .. "Is Static: " .. tostring(field:is_static())
-		.. "\n" .. padding .. "Is Literal: " .. tostring(field:is_literal())
-end
-
---Format all attributes of a field as text
-local function log_typedef(td, padding)
-	padding = (padding or "") .. "\n    "
-	return td:get_full_name()
-		.. padding .. "Size: " .. td:get_size()
-		--..  padding .. "Runtime Type: " .. tostring(td:get_runtime_type())
-		..  padding .. "Is Enum: " .. tostring(td:is_a("System.Enum"))
-		..  padding .. "Is Component: " .. tostring(td:is_a("via.Component"))
-		..  padding .. "Is ValueType: " .. tostring(td:is_value_type())
-		..  padding .. "Is UserData: " .. tostring(td:is_a("via.UserData"))
-		..  padding .. "Is by Ref: " .. tostring(td:is_by_ref())
-		..  padding .. "Is Pointer: " .. tostring(td:is_by_ref())
-		..  padding .. "Is Primitive: " .. tostring(td:is_primitive())
-		..  padding .. "Is Generic Type: " .. tostring(td:is_generic_type())
-		..  padding .. "Is Generic Type Definition: " .. tostring(td:is_generic_type_definition())
-end
-
 --Display Translation, Rotation and Scale as text
-local function log_transform(pos, rot, scale, xform)
-	if obj then 
-		pos = pos or xform:call("get_Position")
-		rot = rot or xform:call("get_Rotation")
-		scale = scale or xform:call("get_LocalScale")
-	end
-	if not pos or not rot or not scale then return "nil" end
-	return "[" .. tostring(pos.x) .. ", " .. tostring(pos.y) .. ", " .. tostring(pos.z) .. "]\n"
-		.. "[" .. tostring(rot.x) .. ", " .. tostring(rot.y) .. ", " .. tostring(rot.z) .. ", " .. tostring(rot.w) .. "]\n"
-		.. "[" .. tostring(scale.x) .. ", " .. tostring(scale.y) .. ", " .. tostring(scale.z) .. "]"
-end
+-- local function log_transform(pos, rot, scale, xform)
+-- 	if obj then 
+-- 		pos = pos or xform:call("get_Position")
+-- 		rot = rot or xform:call("get_Rotation")
+-- 		scale = scale or xform:call("get_LocalScale")
+-- 	end
+-- 	if not pos or not rot or not scale then return "nil" end
+-- 	return "[" .. tostring(pos.x) .. ", " .. tostring(pos.y) .. ", " .. tostring(pos.z) .. "]\n"
+-- 		.. "[" .. tostring(rot.x) .. ", " .. tostring(rot.y) .. ", " .. tostring(rot.z) .. ", " .. tostring(rot.w) .. "]\n"
+-- 		.. "[" .. tostring(scale.x) .. ", " .. tostring(scale.y) .. ", " .. tostring(scale.z) .. "]"
+-- end
 
 --Returns a string of a lua table as you would see it in JSON:
 function json.log(value, remove_arraykeys, remove_quotes, key, layer)
@@ -3206,133 +3096,6 @@ function json.log(value, remove_arraykeys, remove_quotes, key, layer)
 	return msg
 end
 
---Generic text logger for most variables, indentation is meant to work with ImguiTables but also useful for printing/debugging:
-local function log_value(value, value_name, layer_limit, layer, verbose, return_over_print)
-	
-	local msg = {""}
-	local indent = (layer == 0 and {"	   "}) or {""}
-	layer = layer or 0
-	layer_limit = layer_limit or 1 -- "-1" means no limit
-	
-	if layer > 0 then 
-		for i=1, layer do 
-			table.insert(indent, "	")
-		end
-	end
-	indent = table.concat(indent)
-	
-	if value ~= nil then 
-		local str_val = tostring(value)
-		local val_type = type(value)
-		if val_type == "string" then 
-			table.insert(msg, str_val)
-		elseif val_type == "table" or str_val:sub(1,15) == "sol.std::vector" then 
-			local is_vec = (val_type ~= "table")
-			if (not is_vec and (next(value) ~= nil)) or value[1] then
-				local len = 0
-				local is_array = is_vec or (value[1] ~= nil and Utils.isArray(value))
-				if is_array then
-					if verbose then 
-						table.insert(msg, (is_vec and " [vector] " or " ") .. " [" .. #value .. " elements] ") 
-					end
-					if (layer < layer_limit) or (layer_limit == -1) then
-						for i, val in ipairs(value) do 
-							local addition = "\n" .. log_value(val, i, layer_limit, layer + 1, verbose, true)
-							len = len + addition:len()
-							if (layer_limit < 2) and (len > 512) then break end
-							table.insert(msg, addition)
-						end
-					end
-				elseif (not value.__pairs or pcall(value.__pairs, value)) then 
-					if verbose then 
-						local name = value.name or (_data[value] and (_data[value].Name or _data[value].name)) or (value.obj and log_value(value.obj, nil, 0, 0, verbose, true)) or ""
-						table.insert(msg, " [dictionary] " .. name .. " (" .. Utils.get_table_size(value) .. " elements) ")
-					end
-					if (layer < layer_limit) or (layer_limit == -1) then
-						for key, val in orderedPairs(value) do  
-							local addition = "\n" .. log_value(value[key], tostring(key), layer_limit, layer + 1, verbose, true)
-							len = len + addition:len()
-							if (layer_limit < 2) and (len > 512) then break end
-							table.insert(msg, addition)
-						end
-						value.__orderedIndex = nil
-					end
-				else 
-					table.insert(msg, str_val)
-				end
-			else 
-				table.insert(msg, "{}")
-			end
-		elseif Utils.can_index(value) and pcall(function() return value.x end) then --without pcall, broken REManagedObjects will slip through and break it
-			local mt = getmetatable(value)
-			if type(mt.__type) == "table" and mt.__type.name and not value.x then --string.find(str_val, "sdk::") and not str_val:find(":vector<") then 
-				local typename = mt.__type.name
-				if typename == "sdk::RETypeDefinition" then
-					table.insert(msg, log_typedef(value, indent))
-				elseif typename == "sdk::REMethodDefinition" then
-					table.insert(msg, log_method(value, indent))
-				elseif typename == "sdk::REField" then
-					table.insert(msg, log_field(value, indent))
-				elseif typename == "glm::mat<4,4,float,0>" then
-					table.insert(msg, (verbose and "[matrix]" or "") .. mat4_to_string(value, indent .. "	"))
-				elseif typename == "api::sdk::ValueType" or typename == "sdk::SystemArray" or sdk.is_managed_object(value) then
-					local og_value = value
-					if val_type == "number" then  
-						value = sdk.to_managed_object(value) 
-					end 
-					local typedef 
-					if not pcall(function()
-						typedef = value:get_type_definition()
-						msg = typedef and {typedef:get_full_name()}
-					end) or not typedef then return "" end
-					if msg[1] == "via.GameObject" and value:call("get_Valid") then
-						msg[1] = value:call("get_Name")
-					elseif typedef:is_a("via.Component") then
-						local gameobj = get_GameObject(value)
-						if gameobj then
-							table.insert(msg, 1, " " .. gameobj:call("get_Name") .. " -> ")
-						end
-					end
-					if val_type ~= "number" then 
-						table.insert(msg, " @ " .. tostring(value:get_address()))
-					else 
-						table.insert(msg, " @ " .. tostring(og_value))
-					end
-				else
-					imgui.text_colored((str_val:find("REManagedObject") and "Broken REManagedObject") or ("Missing type: " .. typename), 0xFF0000FF)
-					table.insert(msg, str_val)
-				end
-			elseif string.find(str_val, "mat<4") then --value[0] and 
-				table.insert(msg, (verbose and "[matrix]" or "") .. mat4_to_string(value, indent .. "	"))
-			elseif value.x and string.find(str_val, "sol%.glm::") then --and not value.call then --via.Transforms getting in here??
-				table.insert(msg, vector_to_string(value))
-			else
-				table.insert(msg, str_val)
-			end
-		else 
-			table.insert(msg, str_val)
-		end
-	else 
-		table.insert(msg, "nil")
-	end
-	
-	if value_name then 
-		table.insert(msg, 1, tostring(value_name) .. ": ")
-	end
-	
-	--if #msg > 0 then
-		table.insert(msg, 1, indent)
-	--end
-	
-	msg = table.concat(msg)
-	
-	if return_over_print then 
-		return msg, msg:len()
-	else 
-		log.info(msg)
-	end
-end
-
 local function log_stack_trace()
     local msg = "Stack Trace:\n"
     for i = 2, 10 do -- Start at 2 to skip this function call itself
@@ -3343,9 +3106,9 @@ local function log_stack_trace()
 end
 
 --Global printer version of above:
-function logv(value, value_name, layer_limit, layer, verbose)
-	return log_value(value, value_name, layer_limit, layer, verbose, true)
-end
+-- function logv(value, value_name, layer_limit, layer, verbose)
+-- 	return Display_Helpers.log_value(value, value_name, layer_limit, layer, verbose, true)
+-- end
 
 --ChainNode class for handling Chain Bone Nodes -------------------------------------------------------------------------------------------
 local ChainNode = {
@@ -3923,7 +3686,7 @@ local VarData = {
 			if o.is_obj then 
 				example = example:add_ref()
 			end
-			local odc_key = logv(obj) .. " " .. o.name
+			local odc_key = Display_Helpers.logv(obj) .. " " .. o.name
 			o.freeze = old_deferred_calls[odc_key] and old_deferred_calls[odc_key].vardata and old_deferred_calls[odc_key].vardata.freeze or nil -- and old_deferred_calls[odc_key].vardata
 			if o.freeze then 
 				o = Utils.merge_tables(old_deferred_calls[odc_key].vardata, o)
@@ -3990,7 +3753,7 @@ local VarData = {
 				for i, element in ipairs(lua_get_system_array(o.value_org, true)) do --
 					if not Utils.can_index(element) then
 						o_tbl.elements[i] = element
-						o_tbl.element_names[i] = logv(element)
+						o_tbl.element_names[i] = Display_Helpers.logv(element)
 					else
 						o_tbl.elements[i] = element.mValue
 						o_tbl.element_names[i] = element:get_type_definition():get_name()
@@ -4521,7 +4284,7 @@ local function show_imgui_resource(value, name, key_name, data_holder, ret_type)
 	local changed, was_changed
 	
 	if not data_holder.rs_index then --or data_holder.ext == " " then
-		imgui.text(logv(data_holder.ret_type))
+		imgui.text(Display_Helpers.logv(data_holder.ret_type))
 		data_holder.rs_index, data_holder.path, data_holder.ext = add_resource_to_cache(value, nil, data_holder)
 	end
 	
@@ -5223,7 +4986,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 					freeze = nil
 					vd:set_freeze(nil, element_idx)
 					value = vd:get_org_value(element_idx)
-					old_deferred_calls[logv(parent_managed_object) .. " " .. vd.name]  = nil
+					old_deferred_calls[Display_Helpers.logv(parent_managed_object) .. " " .. vd.name]  = nil
 					vd.was_changed = nil
 					changed = 1
 				end
@@ -6694,7 +6457,7 @@ local function show_collection()
 		--Collection = {}
 		local new_collection = Utils.merge_tables({}, Collection)
 		for k, v in pairs(Collection) do 
-			if not v.xform or not old_deferred_calls[logv(v.xform) .. " 1"] then 
+			if not v.xform or not old_deferred_calls[Display_Helpers.logv(v.xform) .. " 1"] then 
 				new_collection[k] = nil
 				cd.collection_xforms[v.xform or 0] = nil
 			end
@@ -8794,7 +8557,7 @@ GameObject = {
 			imgui.same_line()
 			if imgui.button("Print Transform to Log") then
 				local pos, rot, scale = REFramework_Helpers.get_trs(self)
-				log.info("\n" .. game_object_name .. "->" .. " Transform: \n" .. log_transform(pos, rot, scale))
+				log.info("\n" .. game_object_name .. "->" .. " Transform: \n" .. Display_Helpers.log_transform(pos, rot, scale))
 				re.msg("Printed to re2_framework_log.txt")
 			end
 		end 
@@ -9642,7 +9405,7 @@ re.on_frame(function()
 			--shown_transforms[xform] = nil
 		else
 			local pos, rot, scale = REFramework_Helpers.get_trs(xform) 
-			draw.world_text(object.name .. "\n" .. log_transform(pos, rot, scale), pos, 0xFF00FFFF)
+			draw.world_text(object.name .. "\n" .. Display_Helpers.log_transform(pos, rot, scale), pos, 0xFF00FFFF)
 			
 		end
 	end
@@ -9970,16 +9733,16 @@ EMV = {
 	get_enum = get_enum,
 	value_to_obj = REFramework_Helpers.value_to_obj,
 	to_obj = REFramework_Helpers.to_obj,
-	log_value = log_value,
-	logv = logv,
-	log_transform = log_transform,
-	log_bytes = log_bytes,
-	read_bytes = read_bytes,
-	log_method = log_method,
-	log_field = log_field,
-	log_typedef = log_typedef,
-	vector_to_string = vector_to_string,
-	mat4_to_string = mat4_to_string,
+	log_value = Display_Helpers.log_value,
+	logv = Display_Helpers.logv,
+	log_transform = Display_Helpers.log_transform,
+	log_bytes = Display_Helpers.log_bytes,
+	read_bytes = Display_Helpers.read_bytes,
+	log_method = Display_Helpers.log_method,
+	log_field = Display_Helpers.log_field,
+	log_typedef = Display_Helpers.log_typedef,
+	vector_to_string = Display_Helpers.vector_to_string,
+	mat4_to_string = Display_Helpers.mat4_to_string,
 	hashing_method = hashing_method,
 	get_gameobj_path = get_gameobj_path,
 	draw_world_pos = draw_world_pos,
