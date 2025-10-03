@@ -234,6 +234,12 @@ _G.logv = Display_Helpers.logv
 _G.msg_safe = Display_Helpers.msg_safe
 _G.to_obj = REFramework_Helpers.to_obj
 _G.get_GameObject = REFramework_Helpers.get_GameObject
+imgui.input_text_colored = Display_Helpers.input_text_colored
+imgui.tooltip = Display_Helpers.tooltip 
+imgui.tree_node_colored = Display_Helpers.tree_node_colored
+imgui.input_text_colored = Display_Helpers.input_text_colored
+imgui.show_imgui_vec4 = Display_Helpers.show_imgui_vec4
+
 
 
 --local addresses of important functions and tables defined later:
@@ -571,36 +577,6 @@ local function run_command(input)
 	return ((outputs[2]~=nil) and outputs or outputs[1])
 end
 
---Shows a floating message over an imgui element when hovered:
-function imgui.tooltip(msg, delay)
-	delay = delay or 0.5
-	if imgui.is_item_hovered() then
-		if delay then 
-			misc_vars.tooltip_timers = misc_vars.tooltip_timers or uptime 
-			misc_vars.hovered_this_frame = tics
-		end
-		if not delay or not misc_vars.tooltip_timers or ((uptime - misc_vars.tooltip_timers) > delay) then
-			imgui.set_tooltip(msg or "")
-		end
-		
-	elseif delay and misc_vars.hovered_this_frame < tics-1 then 
-		misc_vars.tooltip_timers = nil 
-	end
-end
-
-function imgui.tree_node_colored(key, white_text, color_text, color)
-	local output = imgui.tree_node_str_id(key or 'a', white_text or "")
-	imgui.same_line()
-	imgui.text_colored(color_text or "", color or 0xFFE0853D)
-	return output
-end
-
-function imgui.input_text_colored(white_text, color_text, color, text)
-	local changed, value = imgui.input_text(white_text or "", text)
-	imgui.same_line()
-	imgui.text_colored(color_text or "", color or 0xFFE0853D)
-	return changed, value
-end
 
 --View a table entry as input_text and change the table -------------------------------------------------------------------------------------------------------
 --Returns true if it displayed an editable field, or 1 if the editable field was set
