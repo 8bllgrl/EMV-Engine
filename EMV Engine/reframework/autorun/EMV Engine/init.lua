@@ -350,29 +350,6 @@ local function imgui_check_value(value, name, force_show)
 	end
 end
 
---Split strings into parts --------------------------------------------------------------------------------------------------------------
---Greedy split method 1
--- local function split(str, separator, in_half)
--- 	local t = {}
--- 	for split_str in string.gmatch(str, "([^" .. separator .. "]" .. "+" .. ")") do
--- 		table.insert(t, split_str)
--- 		if in_half then 
--- 			table.insert(t, str:sub(split_str:len()+1, -1))
--- 			break 
--- 		end
--- 	end
--- 	return t
--- end
-
---Lazy split method 2
--- local function Split(s, delimiter)
--- 	result = {}
--- 	for match in (s..delimiter):gmatch("(.-)"..delimiter) do
--- 		table.insert(result, match)
--- 	end
--- 	return result
--- end
-
 --Search transforms utilities and console functions -------------------------------------------------------------------------------------------------------------
 local function find(typedef_name, as_components) --find components by type, returned as via.Transforms
 	--as_components = nil means return array of xforms
@@ -420,13 +397,6 @@ local function findc(typedef_name, gameobj_name)
 	end
 	return results
 end
-
---Wrapper for converting an address to an object
--- local function to_obj(object, is_known_obj)
--- 	if is_known_obj or sdk.is_managed_object(object) then 
--- 		return sdk.to_managed_object(sdk.to_ptr(object)) 
--- 	end
--- end
 
 --Search the global list of all transforms by gameobject name
 local function search(search_term, case_sensitive, as_dict)
@@ -1724,16 +1694,6 @@ MoveSequencer = {
 	end,
 }
 
---Check if value would be converted to a lua type, such as a quaternion ------------------------------------------------------------------------
--- local function is_lua_type(typedef, example)
--- 	local typedef_name = (type(typedef)=="string") and typedef
--- 	typedef = (typedef_name and sdk.find_type_definition(typedef_name)) or typedef
--- 	typedef_name = typedef_name or typedef:get_full_name()
--- 	example = (example~=nil) and (type(example)~="userdata" or tostring(example):match("glm::(.+)%<")) --(type(example)=="number") or (type(example)=="string") or (type(example)=="boolean")
--- 	return example or (typedef_name == "System.String") or (typedef:is_value_type() and ((typedef_name:find("^System%.") and typedef:get_valuetype_size() < 17) or (typedef_name:find("via.mat")))) or nil 
--- 	--(not typedef_name:find("sfix") and typedef:get_valuetype_size() < 17) or 
--- end
-
 --Turn a string into a murmur3 hash -------------------------------------------------------------------------------------------------------------
 hashing_method = function(str) 
 	if type(str) == "string" and tonumber(str) == nil then
@@ -2909,67 +2869,6 @@ local function create_gameobj(name, component_names, args, dont_rename)
 	end
 end
 
---Clone an object:
--- local function clone(instance, instance_type)
-	
--- 	if sdk.is_managed_object(instance) then 
--- 		instance_type = instance_type or instance:get_type_definition()
--- 		local i_name = instance_type:get_full_name()
--- 		--log.info(
--- 		--	"type: " .. i_name .. 
--- 		--	", is_by_ref: " .. tostring(instance_type:is_by_ref()) ..
--- 		--	", is_pointer: " .. tostring(instance_type:is_pointer()) ..
--- 		--	", is_primitive: " .. tostring(instance_type:is_primitive())
--- 		--)
-		
--- 		local worked, copy = pcall(sdk.create_instance, instance_type:get_full_name())
-		
--- 		if not worked then 
--- 			copy = ValueType.new(instance_type)
--- 		end
-		
--- 		if copy then 
--- 			copy:call(".cctor")
--- 			copy:call(".ctor")
--- 		end
-
--- 		copy = copy or instance:call("MemberwiseClone")
-		
--- 		if copy and sdk.is_managed_object(copy) then 
-			 
--- 			if tostring(instance):find("SystemArray") then 
--- 				local elements = instance:get_elements()
--- 				for i, elem in ipairs(elements) do 
--- 					local new_element = clone(elem)
--- 					copy:call("set_Item", i, new_element)
--- 				end
--- 			else 
--- 				for i, field in ipairs(instance_type:get_fields()) do 
--- 					local field_name = field:get_name()
--- 					local field_type = field:get_type()
--- 					if not field:is_literal() then --and not field:is_static() 
--- 						local new_field = instance:get_field(field_name)
--- 						if new_field ~= nil and type(new_field) ~= "string" then 
--- 							if sdk.is_managed_object(new_field) and not field_type:is_a("via.Component") and not field_type:is_a("via.GameObject") then 
--- 								new_field = clone(new_field)
--- 							end
--- 							sdk.set_native_field(copy, instance_type, field_name, new_field)
--- 							--local try = pcall(sdk.set_native_field, copy, instance_type, field_name, new_field) 
--- 							--if not try then 
--- 							--	log_value(copy:call("ToString()") .. " -> " .. field_name, "set_field failed") 
--- 							--	tester = new_component
--- 							--	return
--- 							--end 
--- 						end
--- 					end
--- 				end
--- 			end
--- 			return copy:add_ref()
--- 		end
--- 	end
--- 	return instance
--- end
-
 --Check a SystemArray typedef for what trypedef the array contains. Caches results
 local cached_array_typedefs = REFramework_Helpers.cached_array_typedefs
 
@@ -3108,46 +3007,6 @@ deferred_call = function(managed_object, args, index, on_frame)
 		end
 	end
 end
-		
--- --Convert a lua value to a RE Engine object
--- local function value_to_obj(value, ret_type, ret_typename)
--- 	ret_type = (type(ret_type)=="string" and sdk.find_type_definition(ret_type)) or ret_type
--- 	ret_type = ret_type or (ret_typename and sdk.find_type_definition(ret_typename))
--- 	if not ret_type then return value, "no ret type" end
--- 	ret_typename = ret_typename or ret_type:get_full_name() 
--- 	local func = typedef_to_function[ret_typename]
--- 	if not func then
--- 		for typename, fn in pairs(typedef_to_function) do
--- 			if ret_type:is_a(typename) then
--- 				log.info(typename)
--- 				func = fn
--- 				break
--- 			end
--- 		end
--- 	end
--- 	if func then 
--- 		if func == sdk.create_managed_array then
--- 			local arr_typedef = REFramework_Helpers.evaluate_array_typedef_name(ret_type) or ret_type --sdk.find_type_definition(ret_typename:gsub("%[%]", "")) or ret_type
--- 			local new_arr = (arr_typedef and (type(value) == "table")) and func(arr_typedef, #value)
--- 			new_arr = new_arr:add_ref()
--- 			if new_arr then 
--- 				new_arr:call(".ctor", #value)
--- 				for i, element in ipairs(value) do 
--- 					local elem_obj = value_to_obj(element, arr_typedef)
--- 					log.info(i .. " " .. element .. " " .. logv(elem_obj))
--- 					new_arr:call("SetValue(System.Object, System.Int32)", elem_obj, i-1)
--- 				end
--- 				return new_arr
--- 			end
--- 		elseif func == sdk.create_resource then
--- 			return (type(value) == "string") and create_resource(value, ret_type)
--- 		else
--- 			local new_object = func(value)
--- 			return (new_object and new_object:add_ref()) or nil
--- 		end
--- 	end
--- 	return value, "no func"
--- end
 
 --Functions for displaying objects, tables and variables as text -------------------------------------------------------------------------------
 --Format a vector2, vector3, vector4 or Quaternion as text:
