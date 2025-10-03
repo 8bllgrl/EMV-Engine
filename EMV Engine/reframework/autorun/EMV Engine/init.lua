@@ -197,6 +197,8 @@ local EMV_Dependencies = {
     statics = statics, 
     tds = tds,      
     metadata_methods = metadata_methods,
+	isRE7 = isRE7,   
+	isRT = isRT
 }
 
 REFramework_Helpers = require("REFramework_Helpers").create(EMV_Dependencies)
@@ -420,11 +422,11 @@ local function findc(typedef_name, gameobj_name)
 end
 
 --Wrapper for converting an address to an object
-local function to_obj(object, is_known_obj)
-	if is_known_obj or sdk.is_managed_object(object) then 
-		return sdk.to_managed_object(sdk.to_ptr(object)) 
-	end
-end
+-- local function to_obj(object, is_known_obj)
+-- 	if is_known_obj or sdk.is_managed_object(object) then 
+-- 		return sdk.to_managed_object(sdk.to_ptr(object)) 
+-- 	end
+-- end
 
 --Search the global list of all transforms by gameobject name
 local function search(search_term, case_sensitive, as_dict)
@@ -526,60 +528,6 @@ local function calln(object_name, method_name, args, arg2, arg3)
 	else
 		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name)
 	end
-end
-
---Methods to check if managed objects are valid / usable --------------------------------------------------------------------------------------------------
---Check if a managed object is only kept alive by REFramework:
-local function is_only_my_ref(obj)
-	if obj:read_qword(0x8) <= 0 then return true end
-	--if not obj.get_reference_count or (obj:get_reference_count() <= 0) then return true end
-	if (not isRE7 or isRT) and obj:get_type_definition():is_a("via.Component") then
-		local gameobject_addr = obj:read_qword(0x10)
-		if gameobject_addr == 0 or not sdk.is_managed_object(gameobject_addr) then 
-			return true
-		end
-	end
-	return false
-end
-
---Check officially that a managed object is valid:
-local function get_valid(obj)
-	if (not isRE7 or isRT) then return true end
-	return true -- (obj and obj.call and (obj:call("get_Valid") ~= false))
-end
-
---General check that object is usable:
-local function is_valid_obj(obj, is_not_vt)
-	if type(obj)=="userdata" then 
-		if (not is_not_vt and tostring(obj):find("::ValueType")) then 
-			return true
-		end
-		--if type(obj.read_qword)~="function" or obj:read_qword(0x10)==0 then return false end
-		return sdk.is_managed_object(obj) and Utils.can_index(obj) and not is_only_my_ref(obj)
-	end
-end
-
---"get_GameObject" is the #1 internal-exception causing method in the game; this wrapper protects it and cleans up dead GameObjects
-get_GameObject = function(component, name_or_xform)
-	if component then
-		if (type(component.read_qword)=="function") and sdk.is_managed_object(component:read_qword(0x10)) then
-			try, out = pcall(component.call, component, "get_GameObject()")
-			if try and name_or_xform then
-				if name_or_xform==1 then 
-					return out:call("get_Transform()")
-				end
-				return out:call("get_Name()")
-			end
-			return try and out
-		elseif tostring(component):find("sol%.RE") then
-			clear_object(component)
-		end
-	end
-end
-
---Check if an object is outwardly a ValueType or REManagedObject
-local function is_obj_or_vt(obj)
-	return obj and ((tostring(obj):find("::ValueType") and 1) or is_valid_obj(obj, true))
 end
 
 --Console / load() Functions -----------------------------------------------------------------------------------------------------------
@@ -940,7 +888,7 @@ local ImguiTable = {
 	
 	get_element_name = function(element, elem_key, is_obj)
 		local name
-		is_obj = is_obj or ((is_obj ~= false) and is_obj_or_vt(element))
+		is_obj = is_obj or ((is_obj ~= false) and REFramework_Helpers.is_obj_or_vt(element))
 		if is_obj then 
 			name = elem_key .. ":	" .. logv(element)
 		else
@@ -1095,7 +1043,7 @@ read_imgui_pairs_table = function(tbl, key, is_array, editable)
 							local is_vec = (not do_update and e_d.is_vec) or tostring_name:find(":vector") or nil
 							local is_vt = not is_vec and ((not do_update and e_d.is_vt) or tostring_name:find("::ValueType") or tostring_name:find("::SystemArray")) or nil
 							local is_obj = is_vt or (not is_vec and ((not do_update and e_d.is_obj) or sdk.is_managed_object(element))) or nil --tostring_name:find("%.REManagedObject") or tostring_name:find("%.RETransform")
-							local is_valid = is_obj and is_valid_obj(element)
+							local is_valid = is_obj and REFramework_Helpers.is_valid_obj(element)
 							local td = is_valid and element:get_type_definition()
 							local gameobj = is_valid and ((td:is_a("via.Component") and element:get_GameObject()) or td:is_a("via.GameObject") and element)
 							local enable_method = is_valid and (e_d.enable_method or (element.get_Enabled or element.get_Enable or element.get_Visible))
@@ -1242,72 +1190,6 @@ read_imgui_element = function(elem, index, editable, key, is_vec, is_obj)
 	else
 		imgui.text(logv(elem, nil, 2, 0))
 	end
-end
-
---Matrix and Transform Utilities ----------------------------------------------------------------------------------------------------------
---Forcibly read and write vector4s,  matrices and via.transforms:
-local function write_vec34(managed_object, offset, vector, is_known_managed_object, doVec3)
-	if is_known_managed_object or sdk.is_managed_object(managed_object) then 
-		managed_object:write_float(offset, vector.x)
-		managed_object:write_float(offset + 4, vector.y)
-		managed_object:write_float(offset + 8, vector.z)
-		if not doVec3 and vector.w then  managed_object:write_float(offset + 12, vector.w) end
-	end
-end
-
---Manually read a vector3 or vector4
-local function read_vec34(managed_object, offset, is_known_managed_object, doVec3)
-	if is_known_managed_object or sdk.is_managed_object(managed_object) then 
-		local x = managed_object:read_float(offset)
-		local y = managed_object:read_float(offset + 4)
-		local z = managed_object:read_float(offset + 8)
-		local w = 0
-		if not doVec3 then  w = managed_object:read_float(offset + 12) end
-		return Vector4f.new(x, y, z, w)
-	end
-end
-
---Manually read a matrix4
-local function read_mat4(managed_object, offset, is_known_managed_object)
-	local is_valid = false
-	if is_known_managed_object or sdk.is_managed_object(managed_object) then 
-		is_valid = true
-		local new_mat4 = Matrix4x4f.new()
-		new_mat4[0] = read_vec34(managed_object, offset, 	  is_valid)
-		new_mat4[1] = read_vec34(managed_object, offset + 16, is_valid)
-		new_mat4[2] = read_vec34(managed_object, offset + 32, is_valid)
-		new_mat4[3] = read_vec34(managed_object, offset + 48, is_valid)
-		return new_mat4
-	end
-end
-
---Manually write a matrix4, or not manually if no offset is provided
-local function write_mat4(managed_object, mat4, offset, is_known_valid, is_4x3)
-	is_known_valid = is_known_valid or tostring(managed_object):find("ValueType")
-	if mat4 and (is_known_valid or sdk.is_managed_object(managed_object)) then 
-		if offset then 
-			write_vec34(managed_object, offset, 	 mat4[0], true)
-			write_vec34(managed_object, offset + 16, mat4[1], true)
-			write_vec34(managed_object, offset + 32, mat4[2], true)
-			if not is_4x3 then
-				write_vec34(managed_object, offset + 48, mat4[3], true)
-			end
-		elseif tostring(managed_object):find("RETransform") then
-			local pos, rot, scale = Utils.mat4_to_trs(mat4)
-			managed_object:call("set_Position", pos)
-			managed_object:call("set_Rotation", rot)
-			managed_object:call("set_Scale", scale)
-		end
-	end
-end
-
-
---Get Translation, Rotation and Scale from an GameObject or GameObject
-local function get_trs(object) 
-	if type(object) == "table" then
-		return object.xform:call("get_Position"), object.xform:call("get_Rotation"), object.xform:call("get_LocalScale")
-	end
-	return object:call("get_Position"), object:call("get_Rotation"), object:call("get_LocalScale")
 end
 
 --Generate Enums --------------------------------------------------------------------------------------------------------
@@ -1656,7 +1538,7 @@ Hotkey = {
 			if tbl.obj then
 				dmp_tbl.dfcall.obj = obj_to_json(tbl.obj, true, tbl.dfcall_json)
 				for i, arg in ipairs(tbl.dfcall.args or {}) do 
-					local is_obj = is_obj_or_vt(arg)
+					local is_obj = REFramework_Helpers.is_obj_or_vt(arg)
 					if is_obj then 
 						local setn_arg = (arg:get_type_definition():get_name()=="SetNodeInfo") and {__is_vt=true, __is_setn=true} --awful hack fix, but it only works as a valuetype, not a REManagedObject (which it says it is)
 						dmp_tbl.dfcall.args[i] = obj_to_json(arg, true, setn_arg or tbl.dfcall_json) --convert ValueType/object to json
@@ -1678,7 +1560,7 @@ Hotkey = {
 			
 			local json = self.dfcall and self.dfcall.obj_json or self.dfcall_json or ((type(self.obj)=="table") and self.obj) or nil
 			--re.msg_safe("pressed " .. self.key_name .. " " .. logv(json), 556546)
-			if json and (not is_valid_obj(self.obj)) then --and ((self.obj.get_type_definition and not self.obj:get_type_definition():is_a("via.Component")) or not is_obj_or_vt(self.obj)) then
+			if json and (not REFramework_Helpers.is_valid_obj(self.obj)) then --and ((self.obj.get_type_definition and not self.obj:get_type_definition():is_a("via.Component")) or not is_obj_or_vt(self.obj)) then
 				self.obj = jsonify_table(json, true) --there is no way to know when a non-component is an orphan, so it must be searched for and found in the scene every single keypress
 				self.dfcall.obj = sdk.is_managed_object(self.obj) and self.obj or nil
 			end
@@ -1689,7 +1571,7 @@ Hotkey = {
 						self.dfcall.args[i] = arg 
 					end
 					if type(arg) == "userdata" and self.dfcall.args_json and self.dfcall.args_json[i] then
-						local is_obj = is_obj_or_vt(arg)
+						local is_obj = REFramework_Helpers.is_obj_or_vt(arg)
 						if not is_obj then 
 							self.dfcall.args[i] = jsonify_table(self.dfcall.args_json[i], true, {is_vt=(is_obj==1)})
 						end
@@ -1730,7 +1612,7 @@ MoveSequencer = {
 		
 		o = o or {}
 		o.obj = args.obj or o.obj
-		if o.obj and (not self.items[o.name] or not is_valid_obj(self.items[o.name])) then
+		if o.obj and (not self.items[o.name] or not REFramework_Helpers.is_valid_obj(self.items[o.name])) then
 			o.name = args.name or o.name or (get_GameObject(o.obj, true))
 			_data[o.obj] = _data[args] or _data[o.obj] or create_REMgdObj(o.obj, true)
 			o.obj.sequencer = o
@@ -1843,14 +1725,14 @@ MoveSequencer = {
 }
 
 --Check if value would be converted to a lua type, such as a quaternion ------------------------------------------------------------------------
-local function is_lua_type(typedef, example)
-	local typedef_name = (type(typedef)=="string") and typedef
-	typedef = (typedef_name and sdk.find_type_definition(typedef_name)) or typedef
-	typedef_name = typedef_name or typedef:get_full_name()
-	example = (example~=nil) and (type(example)~="userdata" or tostring(example):match("glm::(.+)%<")) --(type(example)=="number") or (type(example)=="string") or (type(example)=="boolean")
-	return example or (typedef_name == "System.String") or (typedef:is_value_type() and ((typedef_name:find("^System%.") and typedef:get_valuetype_size() < 17) or (typedef_name:find("via.mat")))) or nil 
-	--(not typedef_name:find("sfix") and typedef:get_valuetype_size() < 17) or 
-end
+-- local function is_lua_type(typedef, example)
+-- 	local typedef_name = (type(typedef)=="string") and typedef
+-- 	typedef = (typedef_name and sdk.find_type_definition(typedef_name)) or typedef
+-- 	typedef_name = typedef_name or typedef:get_full_name()
+-- 	example = (example~=nil) and (type(example)~="userdata" or tostring(example):match("glm::(.+)%<")) --(type(example)=="number") or (type(example)=="string") or (type(example)=="boolean")
+-- 	return example or (typedef_name == "System.String") or (typedef:is_value_type() and ((typedef_name:find("^System%.") and typedef:get_valuetype_size() < 17) or (typedef_name:find("via.mat")))) or nil 
+-- 	--(not typedef_name:find("sfix") and typedef:get_valuetype_size() < 17) or 
+-- end
 
 --Turn a string into a murmur3 hash -------------------------------------------------------------------------------------------------------------
 hashing_method = function(str) 
@@ -1942,7 +1824,7 @@ local function create_resource(resource_path, resource_type, force_create)
 	local new_rs_address = new_resource and new_resource:get_address()
 	if type(new_rs_address) == "number" then
 		local holder = sdk.create_instance(resource_type .. "Holder", true)
-		if holder and is_valid_obj(holder) then
+		if holder and REFramework_Helpers.is_valid_obj(holder) then
 			holder = holder:add_ref()
 			holder:call(".ctor()")
 			holder:write_qword(0x10, new_rs_address)
@@ -1974,7 +1856,7 @@ obj_to_json = function(obj, do_only_metadata, args, doForce)
 	local try, otype = pcall(obj.get_type_definition, obj)
 	local is_vt = (try and otype and otype:is_value_type()) or (do_only_metadata == 1) or nil
 	
-	if not try or not otype or (not is_vt and not is_valid_obj(obj)) then 
+	if not try or not otype or (not is_vt and not REFramework_Helpers.is_valid_obj(obj)) then 
 		return 
 	end
 	
@@ -2004,7 +1886,7 @@ obj_to_json = function(obj, do_only_metadata, args, doForce)
 						elseif not count_method and getter then 
 							local try, item = pcall(getter.call, getter, obj) --normal values
 							prop_value = (try and not (type(item)=="string" and ((item == "") or item:find("%.%.%.") or item:find("rror")))) and item or nil
-							if is_valid_obj(prop_value) then
+							if REFramework_Helpers.is_valid_obj(prop_value) then
 								if (prop_value:get_type_definition():is_a("via.Component") or prop_value:get_type_definition():is_a("via.GameObject")) then 
 									prop_value = nil
 								elseif prop_value.add_ref then 
@@ -2051,7 +1933,7 @@ obj_to_json = function(obj, do_only_metadata, args, doForce)
 						elseif method:get_num_params() == 0 then
 							local try, item = pcall(method.call, method, obj) --normal values
 							prop_value = (try and not (type(item)=="string" and ((item == "") or item:find("%.%.%.") or item:find("rror")))) and item or nil 
-							if is_valid_obj(prop_value) then 
+							if REFramework_Helpers.is_valid_obj(prop_value) then 
 								if (prop_value:get_type_definition():is_a("via.Component") or prop_value:get_type_definition():is_a("via.GameObject")) then 
 									prop_value = nil
 								elseif prop_value.add_ref then 
@@ -2192,7 +2074,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 			local val_type = type(value)
 			local str_prefix = go_back_to_table and ((tbl.__address and tbl.__address:sub(1,4)) or ((val_type == "string") and value:sub(1,4)))
 			local splittable = str_prefix and (str_prefix == "vec:" or str_prefix == "mat:" or str_prefix == "res:" or str_prefix == "pfb:" or str_prefix == "lua:")
-			local is_mgd_obj, is_component, is_xform, is_gameobj = not go_back_to_table and is_valid_obj(value) and value:get_type_definition(), nil
+			local is_mgd_obj, is_component, is_xform, is_gameobj = not go_back_to_table and REFramework_Helpers.is_valid_obj(value) and value:get_type_definition(), nil
 			local dont_convert = false
 			if is_mgd_obj then
 				is_component = value:get_type_definition():is_a("via.Component")
@@ -2281,7 +2163,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 					local obj = obj_to_load_to or (splitted and (sdk.is_managed_object(tonumber(splitted[1])) and sdk.to_managed_object(tonumber(splitted[1]))))
 					local typedef = tbl.__typedef and sdk.find_type_definition(tbl.__typedef) 
 					
-					if not is_valid_obj(obj) then 
+					if not REFramework_Helpers.is_valid_obj(obj) then 
 						
 						if typedef and (tbl.__is_vt or args.is_vt) then --create valuetypes
 							if tbl.__is_setn then 
@@ -2503,7 +2385,7 @@ end
 
 --Check if xform is child of another -------------------------------------------------------------------------------------------------
 local function is_child_of(child_xform, possible_parent_xform)
-	while is_valid_obj(child_xform) do
+	while REFramework_Helpers.is_valid_obj(child_xform) do
 		child_xform = child_xform:call("get_Parent")
 		if child_xform == possible_parent_xform then
 			return true
@@ -2811,7 +2693,7 @@ end
 --Get the first GameObject in the scene:
 local function get_first_gameobj()
 	local try, xform = pcall(scene.call, scene, "get_FirstTransform")
-	if try and xform and is_valid_obj(xform) then 
+	if try and xform and REFramework_Helpers.is_valid_obj(xform) then 
 		touched_gameobjects[xform] = touched_gameobjects[xform] or GameObject:new {xform=xform }
 		return touched_gameobjects[xform]
 	end
@@ -3028,88 +2910,68 @@ local function create_gameobj(name, component_names, args, dont_rename)
 end
 
 --Clone an object:
-local function clone(instance, instance_type)
+-- local function clone(instance, instance_type)
 	
-	if sdk.is_managed_object(instance) then 
-		instance_type = instance_type or instance:get_type_definition()
-		local i_name = instance_type:get_full_name()
-		--log.info(
-		--	"type: " .. i_name .. 
-		--	", is_by_ref: " .. tostring(instance_type:is_by_ref()) ..
-		--	", is_pointer: " .. tostring(instance_type:is_pointer()) ..
-		--	", is_primitive: " .. tostring(instance_type:is_primitive())
-		--)
+-- 	if sdk.is_managed_object(instance) then 
+-- 		instance_type = instance_type or instance:get_type_definition()
+-- 		local i_name = instance_type:get_full_name()
+-- 		--log.info(
+-- 		--	"type: " .. i_name .. 
+-- 		--	", is_by_ref: " .. tostring(instance_type:is_by_ref()) ..
+-- 		--	", is_pointer: " .. tostring(instance_type:is_pointer()) ..
+-- 		--	", is_primitive: " .. tostring(instance_type:is_primitive())
+-- 		--)
 		
-		local worked, copy = pcall(sdk.create_instance, instance_type:get_full_name())
+-- 		local worked, copy = pcall(sdk.create_instance, instance_type:get_full_name())
 		
-		if not worked then 
-			copy = ValueType.new(instance_type)
-		end
+-- 		if not worked then 
+-- 			copy = ValueType.new(instance_type)
+-- 		end
 		
-		if copy then 
-			copy:call(".cctor")
-			copy:call(".ctor")
-		end
+-- 		if copy then 
+-- 			copy:call(".cctor")
+-- 			copy:call(".ctor")
+-- 		end
 
-		copy = copy or instance:call("MemberwiseClone")
+-- 		copy = copy or instance:call("MemberwiseClone")
 		
-		if copy and sdk.is_managed_object(copy) then 
+-- 		if copy and sdk.is_managed_object(copy) then 
 			 
-			if tostring(instance):find("SystemArray") then 
-				local elements = instance:get_elements()
-				for i, elem in ipairs(elements) do 
-					local new_element = clone(elem)
-					copy:call("set_Item", i, new_element)
-				end
-			else 
-				for i, field in ipairs(instance_type:get_fields()) do 
-					local field_name = field:get_name()
-					local field_type = field:get_type()
-					if not field:is_literal() then --and not field:is_static() 
-						local new_field = instance:get_field(field_name)
-						if new_field ~= nil and type(new_field) ~= "string" then 
-							if sdk.is_managed_object(new_field) and not field_type:is_a("via.Component") and not field_type:is_a("via.GameObject") then 
-								new_field = clone(new_field)
-							end
-							sdk.set_native_field(copy, instance_type, field_name, new_field)
-							--local try = pcall(sdk.set_native_field, copy, instance_type, field_name, new_field) 
-							--if not try then 
-							--	log_value(copy:call("ToString()") .. " -> " .. field_name, "set_field failed") 
-							--	tester = new_component
-							--	return
-							--end 
-						end
-					end
-				end
-			end
-			return copy:add_ref()
-		end
-	end
-	return instance
-end
+-- 			if tostring(instance):find("SystemArray") then 
+-- 				local elements = instance:get_elements()
+-- 				for i, elem in ipairs(elements) do 
+-- 					local new_element = clone(elem)
+-- 					copy:call("set_Item", i, new_element)
+-- 				end
+-- 			else 
+-- 				for i, field in ipairs(instance_type:get_fields()) do 
+-- 					local field_name = field:get_name()
+-- 					local field_type = field:get_type()
+-- 					if not field:is_literal() then --and not field:is_static() 
+-- 						local new_field = instance:get_field(field_name)
+-- 						if new_field ~= nil and type(new_field) ~= "string" then 
+-- 							if sdk.is_managed_object(new_field) and not field_type:is_a("via.Component") and not field_type:is_a("via.GameObject") then 
+-- 								new_field = clone(new_field)
+-- 							end
+-- 							sdk.set_native_field(copy, instance_type, field_name, new_field)
+-- 							--local try = pcall(sdk.set_native_field, copy, instance_type, field_name, new_field) 
+-- 							--if not try then 
+-- 							--	log_value(copy:call("ToString()") .. " -> " .. field_name, "set_field failed") 
+-- 							--	tester = new_component
+-- 							--	return
+-- 							--end 
+-- 						end
+-- 					end
+-- 				end
+-- 			end
+-- 			return copy:add_ref()
+-- 		end
+-- 	end
+-- 	return instance
+-- end
 
 --Check a SystemArray typedef for what trypedef the array contains. Caches results
-local cached_array_typedefs = {}
-local function evaluate_array_typedef_name(typedef, td_name)
-	typedef = typedef or sdk.find_type_definition(td_name)
-	td_name = td_name or typedef:get_full_name()
-	local output = cached_array_typedefs[td_name]
-	if not output then
-		local str
-		if td_name:find(">d__") then --arrays
-			str = td_name:gsub("%." .. typedef:get_name(), "")
-		elseif td_name:find("%[%]") then --arrays
-			str = td_name:gsub("%[%]", "")
-		elseif td_name:find("Generic%.") and not td_name:find("Enumerator") then --all other dictionaries and arrays
-			str = td_name:match("<(.+)>")
-			str = str and str:match("<(.+)>") or str
-			str = str and str:match(",(.+)$") or str
-		end
-		--str = ((str == "via.GameObjectRef") and "via.GameObject") or str
-		output = (str and sdk.find_type_definition(str))
-	end
-	return ((type(output) == "userdata") and output) or nil
-end
+local cached_array_typedefs = REFramework_Helpers.cached_array_typedefs
 
 --Manually writes a ValueType at a set offset
 local function write_valuetype(parent_obj, offset, value)
@@ -3119,19 +2981,6 @@ local function write_valuetype(parent_obj, offset, value)
 end
 
 --Manually reads a unicode string at an address
-local function read_unicode_string(ptr, is_offset)
-	ptr = (is_offset and sdk.to_valuetype(ptr, "System.UInt64").mValue) or ptr
-	local offs = ptr
-	local str = ""
-	pcall(function()
-		while offs - ptr < 256 and (sdk.to_valuetype(offs, "System.Int16") or {mValue=0}).mValue ~= 0 do
-			local rByte = sdk.to_valuetype(offs, "System.Byte").mValue
-			str = str .. utf8.char(rByte)
-			offs = offs + 2
-		end
-	end)
-    return str
-end
 
 --Takes managed objects (as keys) from deferred_calls[] and call functions on them based on their arguments, during UpdateMotion or on_frame
 deferred_call = function(managed_object, args, index, on_frame)
@@ -3260,45 +3109,45 @@ deferred_call = function(managed_object, args, index, on_frame)
 	end
 end
 		
---Convert a lua value to a RE Engine object
-local function value_to_obj(value, ret_type, ret_typename)
-	ret_type = (type(ret_type)=="string" and sdk.find_type_definition(ret_type)) or ret_type
-	ret_type = ret_type or (ret_typename and sdk.find_type_definition(ret_typename))
-	if not ret_type then return value, "no ret type" end
-	ret_typename = ret_typename or ret_type:get_full_name() 
-	local func = typedef_to_function[ret_typename]
-	if not func then
-		for typename, fn in pairs(typedef_to_function) do
-			if ret_type:is_a(typename) then
-				log.info(typename)
-				func = fn
-				break
-			end
-		end
-	end
-	if func then 
-		if func == sdk.create_managed_array then
-			local arr_typedef = evaluate_array_typedef_name(ret_type) or ret_type --sdk.find_type_definition(ret_typename:gsub("%[%]", "")) or ret_type
-			local new_arr = (arr_typedef and (type(value) == "table")) and func(arr_typedef, #value)
-			new_arr = new_arr:add_ref()
-			if new_arr then 
-				new_arr:call(".ctor", #value)
-				for i, element in ipairs(value) do 
-					local elem_obj = value_to_obj(element, arr_typedef)
-					log.info(i .. " " .. element .. " " .. logv(elem_obj))
-					new_arr:call("SetValue(System.Object, System.Int32)", elem_obj, i-1)
-				end
-				return new_arr
-			end
-		elseif func == sdk.create_resource then
-			return (type(value) == "string") and create_resource(value, ret_type)
-		else
-			local new_object = func(value)
-			return (new_object and new_object:add_ref()) or nil
-		end
-	end
-	return value, "no func"
-end
+-- --Convert a lua value to a RE Engine object
+-- local function value_to_obj(value, ret_type, ret_typename)
+-- 	ret_type = (type(ret_type)=="string" and sdk.find_type_definition(ret_type)) or ret_type
+-- 	ret_type = ret_type or (ret_typename and sdk.find_type_definition(ret_typename))
+-- 	if not ret_type then return value, "no ret type" end
+-- 	ret_typename = ret_typename or ret_type:get_full_name() 
+-- 	local func = typedef_to_function[ret_typename]
+-- 	if not func then
+-- 		for typename, fn in pairs(typedef_to_function) do
+-- 			if ret_type:is_a(typename) then
+-- 				log.info(typename)
+-- 				func = fn
+-- 				break
+-- 			end
+-- 		end
+-- 	end
+-- 	if func then 
+-- 		if func == sdk.create_managed_array then
+-- 			local arr_typedef = REFramework_Helpers.evaluate_array_typedef_name(ret_type) or ret_type --sdk.find_type_definition(ret_typename:gsub("%[%]", "")) or ret_type
+-- 			local new_arr = (arr_typedef and (type(value) == "table")) and func(arr_typedef, #value)
+-- 			new_arr = new_arr:add_ref()
+-- 			if new_arr then 
+-- 				new_arr:call(".ctor", #value)
+-- 				for i, element in ipairs(value) do 
+-- 					local elem_obj = value_to_obj(element, arr_typedef)
+-- 					log.info(i .. " " .. element .. " " .. logv(elem_obj))
+-- 					new_arr:call("SetValue(System.Object, System.Int32)", elem_obj, i-1)
+-- 				end
+-- 				return new_arr
+-- 			end
+-- 		elseif func == sdk.create_resource then
+-- 			return (type(value) == "string") and create_resource(value, ret_type)
+-- 		else
+-- 			local new_object = func(value)
+-- 			return (new_object and new_object:add_ref()) or nil
+-- 		end
+-- 	end
+-- 	return value, "no func"
+-- end
 
 --Functions for displaying objects, tables and variables as text -------------------------------------------------------------------------------
 --Format a vector2, vector3, vector4 or Quaternion as text:
@@ -3943,7 +3792,7 @@ get_fields_and_methods = function(typedef)
 	end
 	
 	propdata.name_methods = get_name_methods(typedef, propdata)
-	propdata.item_type = evaluate_array_typedef_name(typedef, td_name)
+	propdata.item_type = REFramework_Helpers.evaluate_array_typedef_name(typedef, td_name)
 	if propdata.item_type and propdata.item_type:get_full_name() ~= "" then 
 		propdata.item_name_methods = get_name_methods( propdata.item_type, get_fields_and_methods(propdata.item_type), true)
 	end
@@ -3956,7 +3805,7 @@ end
 get_mgd_obj_name = function(m_obj, o_tbl, idx, only_relevant, skip_if_fail)
 	
 	--log.info("checking name for " .. logv(m_obj))
-	if type(m_obj)~="userdata" or not m_obj.get_type_definition or not is_valid_obj(m_obj) then return "" end
+	if type(m_obj)~="userdata" or not m_obj.get_type_definition or not REFramework_Helpers.is_valid_obj(m_obj) then return "" end
 	o_tbl = o_tbl or _data[m_obj] or (m_obj.get_type_definition and not skip_if_fail and create_REMgdObj(m_obj))
 	if not o_tbl then return m_obj:get_type_definition():get_full_name() end
 	
@@ -4168,7 +4017,7 @@ local VarData = {
 		
 		if example ~= nil then --need one example before can start updating
 			o.can_index = Utils.can_index(example)
-			o.is_lua_type = is_lua_type(o.ret_type, example) --or type(example)=="boolean"
+			o.is_lua_type = REFramework_Helpers.is_lua_type(o.ret_type, example) --or type(example)=="boolean"
 			o.is_vt = not o.is_lua_type and (not not (tostring(example):find("::ValueType"))) or o.is_vt
 			o.is_obj = (not o.is_lua_type and (not o.is_vt and sdk.is_managed_object(example))) or nil
 			if type(o.is_lua_type)=="string" then
@@ -4182,7 +4031,7 @@ local VarData = {
 				o.is_res = true
 			end
 			o.array_count = o.is_obj and example:call("get_Count")
-			o.item_type = o.array_count and evaluate_array_typedef_name(example:get_type_definition())
+			o.item_type = o.array_count and REFramework_Helpers.evaluate_array_typedef_name(example:get_type_definition())
 			if o.item_type and o.item_type:get_full_name() == "System.Object" then 
 				o.item_type = nil
 			end
@@ -4455,7 +4304,7 @@ local REMgdObj = {
 		local try, otype = pcall(obj.get_type_definition, obj)
 		local is_vt = (try and otype and otype:is_value_type()) or tostring(obj):find("::ValueType") or nil
 		
-		if not try or not otype or (not is_vt and not is_valid_obj(obj)) or not pcall(obj.call, obj, "get_Type") then 
+		if not try or not otype or (not is_vt and not REFramework_Helpers.is_valid_obj(obj)) or not pcall(obj.call, obj, "get_Type") then 
 			print("REMgdObj Failed step 2")
 			return 
 		end
@@ -4501,7 +4350,7 @@ local REMgdObj = {
 			o.parent = obj:call("get_Parent")
 			o.children = lua_get_enumerator(obj:call("get_Children"), o)
 			o.child_folders = lua_get_enumerator(obj:call("get_Folders"), o) or {}
-			o.scn_path = read_unicode_string(obj:get_address()+statics.scn_path_offs, true)
+			o.scn_path = REFramework_Helpers.read_unicode_string(obj:get_address()+statics.scn_path_offs, true)
 		elseif otype:is_a("via.gui.Control") then
 			o.gui = GUITree:new{obj=obj}
 		end
@@ -5307,7 +5156,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 			end
 			imgui.tree_pop()
 		else
-			if prop and not vd.is_vt and not is_valid_obj(value) then
+			if prop and not vd.is_vt and not REFramework_Helpers.is_valid_obj(value) then
 				local idx = Utils.find_index(o_tbl.props, prop)
 			--	if idx then table.remove(o_tbl.props, idx) end --its broken
 			elseif vd.is_static then
@@ -5627,7 +5476,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 									_data[vd.value] = _data[vd.value] or create_REMgdObj(vd.value)
 									vd.new_arr_elems = Utils.merge_indexed_tables({}, _data[vd.value].elements) or {}
 								else
-									vd.new_arr_elems = {(is_lua_type(vd.item_type) and 0) or sdk.create_instance(vd.item_type:get_full_name(), true):add_ref()} 
+									vd.new_arr_elems = {(REFramework_Helpers.is_lua_type(vd.item_type) and 0) or sdk.create_instance(vd.item_type:get_full_name(), true):add_ref()} 
 								end
 							end
 						else
@@ -5712,7 +5561,7 @@ local function show_managed_objects_table(parent_managed_object, tbl, prop, key_
 			
 			local disp_name = (idx-1) .. ". " .. ((key and "["..key.."] = ") or "") .. (element_name or tostring(element)) .. ((arr_tbl.set or o_tbl.is_arr) and "" or "*") 
 			
-			if (not prop.is_lua_type and not is_lua_type(item_type) and not element_name:find("[Ss]fix")) then --special thing for reading elements that are objects (read_field could also work though)
+			if (not prop.is_lua_type and not REFramework_Helpers.is_lua_type(item_type) and not element_name:find("[Ss]fix")) then --special thing for reading elements that are objects (read_field could also work though)
 				imgui.text("")
 				imgui.same_line()
 				--if imgui.tree_node_str_id(key_name .. element_name .. idx, disp_name ) then
@@ -5943,7 +5792,7 @@ end
 function imgui.managed_object_control_panel(m_obj, key_name, field_name)
 	
 	if type(m_obj) ~= "userdata" then return imgui.text_colored("	"..tostring(m_obj), 0xFF0000FF) end
-	if not _data[m_obj] and is_obj_or_vt(m_obj) then 
+	if not _data[m_obj] and REFramework_Helpers.is_obj_or_vt(m_obj) then 
 		create_REMgdObj(m_obj) --create REMgdObj class	
 		if (type(_data[m_obj])~="table") or (_data[m_obj].type==nil) then 
 			return false--, m_obj 
@@ -8035,11 +7884,11 @@ GameObject = {
 			return
 		end
 		
-		o.gameobj = (o.gameobj and is_valid_obj(o.gameobj) and o.gameobj) or (o.xform and get_GameObject(o.xform))
+		o.gameobj = (o.gameobj and REFramework_Helpers.is_valid_obj(o.gameobj) and o.gameobj) or (o.xform and get_GameObject(o.xform))
 		o.xform = o.xform or (o.gameobj and o.gameobj:call("get_Transform"))
 		o.gameobj = o.gameobj or (o.xform and get_GameObject(o.xform))
 		
-		if not o.gameobj or not is_valid_obj(o.xform) then
+		if not o.gameobj or not REFramework_Helpers.is_valid_obj(o.xform) then
 			if o.xform then 
 				self.dead_addresses[o.xform] = self.dead_addresses[o.xform] or 0
 			end
@@ -9059,7 +8908,7 @@ GameObject = {
 		if self.display_transform then 
 			imgui.same_line()
 			if imgui.button("Print Transform to Log") then
-				local pos, rot, scale = get_trs(self)
+				local pos, rot, scale = REFramework_Helpers.get_trs(self)
 				log.info("\n" .. game_object_name .. "->" .. " Transform: \n" .. log_transform(pos, rot, scale))
 				re.msg("Printed to re2_framework_log.txt")
 			end
@@ -9445,7 +9294,7 @@ GameObject = {
 	end,
 	
 	update_components = function(self, basis_args)
-		if not self or not is_valid_obj(self.xform) then return end
+		if not self or not REFramework_Helpers.is_valid_obj(self.xform) then return end
 		held_transforms[self.xform], touched_gameobjects[self.xform] = nil
 		self = GameObject:new_AnimObject({xform=self.xform}, basis_args, true)
 		if touched_gameobjects[self.xform] then
@@ -9458,7 +9307,7 @@ GameObject = {
 		for xform, obj in pairs(held_transforms) do 
 			if obj.joints  then
 				local active_poser = obj.poser and (uptime - obj.poser.is_open) < 5
-				if (obj.show_joints or active_poser) and is_valid_obj(xform) then
+				if (obj.show_joints or active_poser) and REFramework_Helpers.is_valid_obj(xform) then
 					obj.joint_positions = obj.joint_positions or {}
 					for i, joint in pairs((active_poser and obj.poser.all_joints) or obj.joints) do 
 						obj.joint_positions[joint] = joint:call("get_WorldMatrix")
@@ -9470,7 +9319,7 @@ GameObject = {
 	
 	update = function(self, is_known_valid)
 		
-		if is_known_valid or is_valid_obj(self.xform) then
+		if is_known_valid or REFramework_Helpers.is_valid_obj(self.xform) then
 			
 			self.display = self.gameobj:call("get_Draw")
 			if self.display_org == nil then 
@@ -9725,7 +9574,7 @@ re.on_application_entry("PrepareRendering", function()
 	end
 	
 	for xform, joints in pairs(frozen_joints) do
-		if is_valid_obj(xform) then
+		if REFramework_Helpers.is_valid_obj(xform) then
 			for joint, tbl in pairs(joints) do
 				if tbl[1] then
 					joint:call("set_LocalEulerAngle", tbl[1])
@@ -9793,18 +9642,27 @@ end)
 --Hooked copy of handle_address:
 object_explorer = Utils.merge_tables({old=object_explorer}, getmetatable(object_explorer))
 object_explorer.handle_address = function(self, address, skip_ctl_panel)
-	if object_explorer.old then
-		object_explorer.old:handle_address(address)
-		if not skip_ctl_panel and SettingsCache.embed_mobj_control_panel and imgui.tree_node("Managed Object Control Panel") then
-			if type(address)=="number" then
-				address = sdk.to_managed_object(address)
-			end
-			imgui.managed_object_control_panel(address)
-			imgui.tree_pop()
-		end
-	end
+    if object_explorer.old then
+        object_explorer.old:handle_address(address)
+        if not skip_ctl_panel and SettingsCache.embed_mobj_control_panel and imgui.tree_node("Managed Object Control Panel") then
+            
+            -- FIX: Temporarily disable embedding to break the infinite recursion
+            local old_embed = SettingsCache.embed_mobj_control_panel 
+            SettingsCache.embed_mobj_control_panel = false 
+            
+            if type(address)=="number" then
+                address = sdk.to_managed_object(address)
+            end
+            
+            imgui.managed_object_control_panel(address)
+            
+            -- Restore original setting
+            SettingsCache.embed_mobj_control_panel = old_embed 
+            
+            imgui.tree_pop()
+        end
+    end
 end
-
 --On Frame ------------------------------------------------------------------------------------------------------------------------------------------------
 re.on_frame(function()
 	misc_vars.is_any_ctx_menu_open = nil
@@ -9898,7 +9756,7 @@ re.on_frame(function()
 			clear_object(xform)
 			--shown_transforms[xform] = nil
 		else
-			local pos, rot, scale = get_trs(xform) 
+			local pos, rot, scale = REFramework_Helpers.get_trs(xform) 
 			draw.world_text(object.name .. "\n" .. log_transform(pos, rot, scale), pos, 0xFF00FFFF)
 			
 		end
@@ -9979,7 +9837,7 @@ re.on_frame(function()
 				end
 				if saved_mats[name].__objects then 
 					for xform, object in pairs(saved_mats[name].__objects) do 
-						if not is_valid_obj(object.xform) then 
+						if not REFramework_Helpers.is_valid_obj(object.xform) then 
 							saved_mats[name].__objects[object.xform] = nil
 							clear_object(object.xform)
 						end
@@ -10176,9 +10034,9 @@ EMV = {
 	random_range = Utils.random_range,
 	random = Utils.random,
 	create_REMgdObj = create_REMgdObj,
-	get_valid = get_valid,
-	is_only_my_ref = is_only_my_ref,
-	is_valid_obj = is_valid_obj,
+	get_valid = REFramework_Helpers.get_valid,
+	is_only_my_ref = REFramework_Helpers.is_only_my_ref,
+	is_valid_obj = REFramework_Helpers.is_valid_obj,
 	orderedNext = orderedNext,
 	orderedPairs = orderedPairs,
 	run_command = run_command,
@@ -10192,18 +10050,18 @@ EMV = {
 	kb_state = kb_state,
 	get_mouse_device = get_mouse_device,
 	get_kb_device = get_kb_device,
-	split = split,
-	Split = Split,
+	split = Utils.greedy_split,
+	Split = Utils.lazy_split,
 	vector_to_table = Utils.vector_to_table,
 	magnitude = Utils.magnitude,
 	mat4_scale = Utils.mat4_scale,
-	write_vec34 = write_vec34,
-	read_vec34 = read_vec34,
-	read_mat4 = read_mat4,
-	write_mat4 = write_mat4,
+	write_vec34 = REFramework_Helpers.write_vec34,
+	read_vec34 = REFramework_Helpers.read_vec34,
+	read_mat4 = REFramework_Helpers.read_mat4,
+	write_mat4 = REFramework_Helpers.write_mat4,
 	trs_to_mat4 = Utils.trs_to_mat4,
 	mat4_to_trs = Utils.mat4_to_trs,
-	get_trs = get_trs,
+	get_trs = REFramework_Helpers.get_trs,
 	create_resource = create_resource,
 	get_folders = get_folders,
 	get_table_size = Utils.get_table_size,
@@ -10214,7 +10072,7 @@ EMV = {
 	is_child_of = is_child_of,
 	get_player = get_player,
 	constructor = constructor,
-	is_lua_type = is_lua_type,
+	is_lua_type = REFramework_Helpers.is_lua_type,
 	delete_component = delete_component,
 	lua_find_component = lua_find_component,
 	lua_get_components = lua_get_components,
@@ -10225,8 +10083,8 @@ EMV = {
 	smoothstep = Utils.smoothstep,
 	generate_statics = generate_statics,
 	get_enum = get_enum,
-	value_to_obj = value_to_obj,
-	to_obj = to_obj,
+	value_to_obj = REFramework_Helpers.value_to_obj,
+	to_obj = REFramework_Helpers.to_obj,
 	log_value = log_value,
 	logv = logv,
 	log_transform = log_transform,
@@ -10282,12 +10140,12 @@ EMV = {
 	create_gameobj = create_gameobj,
 	obj_to_json = obj_to_json,
 	get_body_part = get_body_part,
-	is_obj_or_vt = is_obj_or_vt,
+	is_obj_or_vt = REFramework_Helpers.is_obj_or_vt,
 	get_GameObject = get_GameObject,
 	get_fields_and_methods = get_fields_and_methods,
 	nextValue = Utils.nextValue,
 	get_args = get_args,
-	read_unicode_string = read_unicode_string,
+	read_unicode_string = REFramework_Helpers.read_unicode_string,
 	edit_obj = edit_obj,
 	edit_objs = edit_objs,
 }
