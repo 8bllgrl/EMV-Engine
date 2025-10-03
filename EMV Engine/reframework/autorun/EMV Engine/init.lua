@@ -9,6 +9,7 @@ local Matrix4x4f = Matrix4x4f
 -- BitStream = require("EMV Engine/Bitstream")
 BitStream = require("BitStream") -- this seems to be temporary...
 ConfigModule = require("config_and_constants") -- EMV_Engine/ later\
+-- REFramework_Helpers_M = require("REFramework_Helpers") -- EMV_Engine/ later\
 
 Utils = require("EMV_Utils").create({
     os = os,
@@ -76,7 +77,10 @@ while scene_timer < 100 and not pcall(function()
 end) do scene_timer = scene_timer + 1 end
 _G.isGNG = not not scene:call("findGameObject(System.String)", "St03_01_BrightnessRTT") or nil
 
+
 local game_name = (isGNG and "gng") or reframework.get_game_name()
+
+
 
 local msg_ids = {}
 local saved_mats = {files=fs.glob([[EMV_Engine\\Saved_Materials\\.*.json]]), names_map={}, names_indexed={}} --Collection of auto-applied altered material settings for GameObjects (by name)
@@ -180,6 +184,23 @@ REMgdObj_objects.RETransform = scene and scene:call("get_FirstTransform") or nil
 
 getmetatable(REMgdObj_objects.ValueType).__is_vt = true
 
+-- move up later
+local EMV_Dependencies = {
+    sdk = sdk,
+    scene = scene,
+    Vector3f = Vector3f,
+    Vector4f = Vector4f,
+    Matrix4x4f = Matrix4x4f,
+    Quaternion = Quaternion,
+    ValueType = ValueType,
+    Utils = Utils,
+    statics = statics, 
+    tds = tds,      
+    metadata_methods = metadata_methods,
+}
+
+REFramework_Helpers = require("REFramework_Helpers").create(EMV_Dependencies)
+
 
 --local addresses of important functions and tables defined later:
 EMV = {}
@@ -201,7 +222,10 @@ local lua_find_component
 local deferred_call
 local hashing_method
 local clear_object
-local get_GameObject
+local get_GameObject = REFramework_Helpers.get_GameObject
+
+
+
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
 
