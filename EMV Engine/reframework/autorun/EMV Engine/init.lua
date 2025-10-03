@@ -186,22 +186,48 @@ getmetatable(REMgdObj_objects.ValueType).__is_vt = true
 
 -- move up later
 local EMV_Dependencies = {
+    -- Core REFramework objects and global state
     sdk = sdk,
-    scene = scene,
-    Vector3f = Vector3f,
+    imgui = imgui,
+    draw = draw,
+    re = re,
+    log = log,
+    
+    -- Other object constructors needed by helpers
     Vector4f = Vector4f,
-    Matrix4x4f = Matrix4x4f,
-    Quaternion = Quaternion,
-    ValueType = ValueType,
-    Utils = Utils,
-    statics = statics, 
-    tds = tds,      
-    metadata_methods = metadata_methods,
-	isRE7 = isRE7,   
-	isRT = isRT
+    
+    -- Modules that MUST be initialized before this call
+    Utils = Utils, 
+    
+    -- Variables that track global state/time/settings (must be passed by reference)
+    _data = _data,                
+    SettingsCache = SettingsCache,
+    static_funcs = static_funcs,
+    statics = statics,
+    misc_vars = misc_vars,
+    
+    -- Dynamic data/time
+    tics = tics,
+    uptime = uptime,
+    msg_ids = msg_ids,
+    world_positions = world_positions,
+    last_camera_matrix = last_camera_matrix,
+    
+    -- Global utility functions (or placeholders for them)
+    get_enum = get_enum,
+    orderedPairs = orderedPairs,
 }
 
+
+
+-- 1. Initialize REFramework_Helpers. The local variable REFramework_Helpers now holds the exports.
 REFramework_Helpers = require("REFramework_Helpers").create(EMV_Dependencies)
+
+-- 2. Update the dependency table with the newly initialized module exports.
+EMV_Dependencies.REFramework_Helpers = REFramework_Helpers
+
+-- 3. Initialize Display_Helpers, which can now safely access the required helper functions.
+Display_Helpers = require("Display_Helpers").create(EMV_Dependencies)
 
 
 --local addresses of important functions and tables defined later:
