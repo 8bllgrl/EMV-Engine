@@ -4386,84 +4386,6 @@ local function show_imgui_text_box(display_name, value, o_tbl, can_set, tkey, is
 	return changed, value
 end
 
---Displays world coordinates of a vector3-4 field in imgui, if that vector is detected as being a coordinate:
-local function draw_world_pos(pos, name, color)
-	--if not pos then return end
-	if type(pos.z) ~= "number" then 
-		pos = pos[3] --matrices
-	end
-	draw.world_text((name or "Position") .. "\n[" .. pos.x .. ", " .. pos.y .. ", " .. pos.z .. "]", pos, color or 0xFF00FFFF)
-end
-
-local function offer_show_world_pos(value, name, key_name, obj, field_or_method)
-	if value:length() > 5 or (world_positions[obj] and world_positions[obj][name]) then
-		local o_tbl = _data[obj]
-		o_tbl.world_positions = o_tbl.world_positions or world_positions[obj] or {}
-		local wpos_tbl, changed = o_tbl.world_positions[name]
-		if not wpos_tbl then
-			wpos_tbl = {}
-			wpos_tbl.method = field_or_method.call and field_or_method
-			wpos_tbl.field = field_or_method.get_data and field_or_method
-			wpos_tbl.name = ((o_tbl.Name or o_tbl.name) .. "\n") .. name --(o_tbl.gameobj_name and (o_tbl.gameobj_name .. " ") or "") .. ((o_tbl.Name or o_tbl.name) .. "\n") .. name
-			o_tbl.world_positions[name] = wpos_tbl
-		end
-		imgui.same_line()
-		imgui.push_id(key_name .. name .. "Id")
-			changed, wpos_tbl.active = imgui.checkbox("Display", wpos_tbl.active) 
-			if wpos_tbl.active then 
-				--imgui.same_line()
-				--changed, wpos_tbl.as_local = imgui.checkbox("Local", wpos_tbl.as_local) 
-				wpos_tbl.color = changed and (math.random(0x1,0x00FFFFFF) - 1 + 4278190080) or wpos_tbl.color
-				world_positions[obj] = o_tbl.world_positions
-			end
-		imgui.pop_id()
-	end
-end
-
---Displays a vector2, 3 or 4 with editable fields in imgui:
-local function show_imgui_vec4(value, name, is_int, increment, normalize)
-	if not value then return end
-	local changed = false
-	local increment = increment or 0.01
-	if type(value) ~= "number" then
-		--local typename = value.__type and value.__type.name  glm::qua<float,0>
-		if value.w  then 
-			if name:find("olor") then
-				changed, value = imgui.color_edit4(name, value, (not SettingsCache.use_color_bytes and 17301504) or nil)
-				if SettingsCache.use_color_bytes then
-					imgui.text_colored("Adjusted for Gamma: [" 
-					.. static_funcs.calc_color(value.x) .. ", " .. static_funcs.calc_color(value.y) .. ", " .. static_funcs.calc_color(value.z) .. ", " .. static_funcs.calc_color(value.w) .. "]", 0xFFE0853D)
-				end
-			else
-				changed, value = imgui.drag_float4(name, value, increment, -10000.0, 10000.0)
-				--if changed and normalize or (value.__is_vec4==true) then -- (name:find("Rot") or (value - value:normalized()):length() < 0.001)  then -- and tostring(value):find("qua")
-				--	value:normalize() 
-				--end
-			end
-		elseif value.z then
-			if is_int then
-				changed, value = imgui.drag_float3(name, value, 1.0, -16777216, 16777216)
-			elseif name:find("olor") then
-				changed, value = imgui.color_edit3(name, value, (not SettingsCache.use_color_bytes and 17301504) or nil)
-				if SettingsCache.use_color_bytes then
-					imgui.text_colored("Adjusted for Gamma: [" 
-					.. static_funcs.calc_color(value.x) .. ", " .. static_funcs.calc_color(value.y) .. ", " .. static_funcs.calc_color(value.z) .. "]", 0xFFE0853D)
-				end
-			else
-				changed, value = imgui.drag_float3(name, value, increment, -10000.0, 10000.0)
-			end
-		elseif value.y then
-			if is_int then  --17301504
-				changed, value = imgui.drag_float2(name, value, 1.0, -16777216, 16777216)
-			else
-				changed, value = imgui.drag_float2(name, value, increment, -10000.0, 10000.0)
-			end
-		end
-	else
-		changed, value = imgui.drag_float(name, value, increment, -10000.0, 10000.0)
-	end
-	return changed, value
-end
 
 local function resource_ctx_menu(filetype, real_path, lua_obj_tbl)
 	imgui.tooltip("Right click for more options")
@@ -4680,7 +4602,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		or vd.is_sfix==2 and Vector2f.new(value.x:ToFloat(), value.y:ToFloat()) 
 		or value:ToFloat()
 		if vd.is_sfix > 1 then
-			changed, new_value = show_imgui_vec4(new_value, display_name, nil, vd.increment)
+			changed, new_value = Display_Helpers.show_imgui_vec4(new_value, display_name, nil, vd.increment)
 		else
 			changed, new_value = imgui.drag_float(display_name, new_value, vd.increment, -100000.0, 100000.0)
 		end
@@ -4690,7 +4612,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		end
 	elseif return_type:is_a("via.Position") then
 		local new_value = Vector3f.new(value:get_field("x"), value:get_field("y"), value:get_field("z"))
-		changed, new_value = show_imgui_vec4(new_value, display_name, nil, vd.increment)
+		changed, new_value = Display_Helpers.show_imgui_vec4(new_value, display_name, nil, vd.increment)
 		if changed then 
 			value:write_double(0, new_value.x) ; value:write_double(0x8, new_value.y) ; value:write_double(0x10, new_value.z) 
 		end
@@ -4699,7 +4621,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		if imgui.tree_node_str_id(key_name .. name, display_name) then 
 			local new_value = Matrix4x4f.new()
 			for i=0, 3 do 
-				changed, new_value[i] = show_imgui_vec4(value[i], "Row[" .. i .. "]", nil, vd.increment)
+				changed, new_value[i] = Display_Helpers.show_imgui_vec4(value[i], "Row[" .. i .. "]", nil, vd.increment)
 				was_changed = changed or was_changed
 				if i == 3 and new_value[i].w == 1 then 
 					o_tbl.name = tostring(o_tbl.name)
@@ -4713,7 +4635,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 			imgui.tree_pop()
 		end
 	elseif value and ((vd.is_lua_type == "qua") or (vd.is_lua_type == "vec")) then --all other lua types --or (value and vd.can_index and (type(value.x or value[0])=="number"))
-		changed, value = show_imgui_vec4(value, display_name, nil, vd.increment)
+		changed, value = Display_Helpers.show_imgui_vec4(value, display_name, nil, vd.increment)
 		--if value.__is_vec4==true then 
 		--	imgui.text("Before imgui: " .. tostring(value) .. ", " .. vector_to_string(value))
 		--end
@@ -4894,7 +4816,7 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		imgui.begin_rect()
 		
 			if do_offer_worldpos then 
-				offer_show_world_pos(table.unpack(do_offer_worldpos)) 
+				Display_Helpers.offer_show_world_pos(table.unpack(do_offer_worldpos)) 
 				local world_tbl = o_tbl.world_positions and o_tbl.world_positions[name] 
 				if (vd.set or vd.field or vd.is_arr_element) and ((world_tbl and world_tbl.active) or vd.is_pos ) then  --or vd.is_rot --rotation is being fucky
 					imgui.same_line()
@@ -5956,7 +5878,7 @@ local Material = {
 				changed, new_var = imgui.drag_float(var_name, new_var, 0.01, -10000, 10000)
 			elseif self.variable_types[v] == 4 then
 				local was_changed = false
-				changed, new_var = show_imgui_vec4(new_var, var_name)
+				changed, new_var = Display_Helpers.show_imgui_vec4(new_var, var_name)
 			else
 				changed, new_var = imgui.checkbox(var_name, new_var)
 			end
@@ -9399,7 +9321,7 @@ re.on_frame(function()
 						sub_tbl.world_value = sub_tbl.world_value + _data[obj].xform:call("get_Position")
 					end
 					if sub_tbl.world_value then 
-						draw_world_pos(sub_tbl.world_value, sub_tbl.name, sub_tbl.color)
+						Display_Helpers.draw_world_pos(sub_tbl.world_value, sub_tbl.name, sub_tbl.color)
 					end
 				else
 					world_positions[obj] = nil
@@ -9721,9 +9643,9 @@ EMV = {
 	mat4_to_string = Display_Helpers.mat4_to_string,
 	hashing_method = hashing_method,
 	get_gameobj_path = get_gameobj_path,
-	draw_world_pos = draw_world_pos,
-	offer_show_world_pos = offer_show_world_pos,
-	show_imgui_vec4 = show_imgui_vec4,
+	draw_world_pos = Display_Helpers.draw_world_pos,
+	offer_show_world_pos = Display_Helpers.offer_show_world_pos,
+	show_imgui_vec4 = Display_Helpers.show_imgui_vec4,
 	imgui_chain_settings = imgui_chain_settings,
 	read_field = read_field,
 	show_field = show_field,
