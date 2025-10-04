@@ -216,18 +216,23 @@ local EMV_Dependencies = {
     -- Global utility functions (or placeholders for them)
     get_enum = get_enum,
     orderedPairs = orderedPairs,
+	scene = scene,
+	static_objs = static_objs,
 }
 
 
 
 -- 1. Initialize REFramework_Helpers. The local variable REFramework_Helpers now holds the exports.
 REFramework_Helpers = require("REFramework_Helpers").create(EMV_Dependencies)
-
--- 2. Update the dependency table with the newly initialized module exports.
 EMV_Dependencies.REFramework_Helpers = REFramework_Helpers
 
 -- 3. Initialize Display_Helpers, which can now safely access the required helper functions.
 Display_Helpers = require("Display_Helpers").create(EMV_Dependencies)
+EMV_Dependencies.Display_Helpers = Display_Helpers
+
+ObjectSearchers = require("ObjectSearchers").create(EMV_Dependencies)
+EMV_Dependencies.ObjectSearchers = ObjectSearchers
+
 
 -- Where i put some globals
 _G.logv = Display_Helpers.logv
@@ -264,7 +269,18 @@ local hashing_method
 local clear_object
 local get_GameObject = REFramework_Helpers.get_GameObject
 
-
+local find = ObjectSearchers.find
+local findc = ObjectSearchers.findc
+local findtdm = ObjectSearchers.findtdm
+local search = ObjectSearchers.search
+local sort_components = ObjectSearchers.sort_components
+local sort = ObjectSearchers.sort
+local closest = ObjectSearchers.closest
+local calln = ObjectSearchers.calln
+local searchf = ObjectSearchers.searchf
+local get_all_folders = ObjectSearchers.get_all_folders
+local get_transforms = ObjectSearchers.get_transforms
+local get_first_gameobj = ObjectSearchers.get_first_gameobj
 
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
@@ -371,156 +387,6 @@ local function imgui_check_value(value, name, force_show)
 	if force_show or value == nil then 
 		imgui.same_line()
 		imgui.text(name or tostring(value))
-	end
-end
-
---Search transforms utilities and console functions -------------------------------------------------------------------------------------------------------------
-local function find(typedef_name, as_components) --find components by type, returned as via.Transforms
-	--as_components = nil means return array of xforms
-	--as_components = true means return array of components
-	--as_components = 1 means return xform-dict of xforms
-	--as_components = 2 means return xform-dict of components
-	local typeof = sdk.typeof(typedef_name)
-	local result
-	if typeof then 
-		result = scene:call("findComponents(System.Type)", typeof)
-		result = result and result.get_elements and result:get_elements() or {}
-		if not as_components or as_components==1 or as_components==2 then
-			local xforms = {}
-			for i, item in ipairs(result) do 
-				local xform = get_GameObject(item):call("get_Transform")
-				if as_components == 1 then 
-					xforms[xform] = xform
-				elseif as_components==2 then
-					xforms[xform] = result
-				else
-					table.insert(xforms, xform)
-				end
-			end
-			result = xforms
-		end
-	end
-	return result or {}
-end
-
---Get a method from a typedef name by name
-local function findtdm(typedef_name, method_name)
-	local td = sdk.find_type_definition(typedef_name)
-	return td and td:get_method(method_name)
-end
-
---Find components by type, returned as components
-local function findc(typedef_name, gameobj_name)
-	local results = find(typedef_name, true)
-	if gameobj_name then 
-		for i, result in ipairs(results) do 
-			if get_GameObject(result, true) == gameobj_name then 
-				return result
-			end
-		end
-	end
-	return results
-end
-
---Search the global list of all transforms by gameobject name
-local function search(search_term, case_sensitive, as_dict)
-	local result = scene and scene:call("findComponents(System.Type)", sdk.typeof("via.Transform"))
-	local search_results = {}
-	if result and result.get_elements then 
-		local term = not case_sensitive and search_term:lower() or search_term
-		for i, element in ipairs(result:get_elements()) do
-			local name = not case_sensitive and get_GameObject(element, true):lower() or get_GameObject(element, true)
-			if name:find(term) then 
-				if as_dict then 
-					search_results[element] = element
-				else
-					table.insert(search_results, element)
-				end
-			end
-		end
-	end
-	return search_results
-end
-
---Sort the list of all components
-local function sort_components(tbl)
-	tbl = ((not tbl or (type(tbl) == "string")) and search(tbl)) or tbl
-	local ordered_indexes, output = {}, {}
-	local cam_gameobj = get_GameObject(static_objs.cam)
-	for i=1, #tbl do ordered_indexes[i]=i end
-	table.sort (ordered_indexes, function(idx1, idx2)
-		return static_funcs.distance_gameobjs:call(nil, tbl[idx1]:call("get_GameObject"), cam_gameobj) < static_funcs.distance_gameobjs:call(nil, tbl[idx2]:call("get_GameObject"), cam_gameobj)
-	end)
-	for i=1, #ordered_indexes do output[#output+1] = tbl[ ordered_indexes[i] ] end
-	return output
-end
-
---Sort a list transforms by distance to a position:
-local function sort(tbl, position, optional_max_dist, only_important)
-	
-	position = position or last_camera_matrix[3] --static_objs.cam:call("get_WorldMatrix")[3]
-	if not tbl or type(tbl) == "string" then 
-		tbl = search(tbl)
-	end
-	
-	local unsorted_results, ordered_idxes, claimed, final_output, lengths = {}, {}, {}, {}, {}
-	for i, element in ipairs(tbl) do
-		local gameobj
-		if type(element.call) == "function" then --sdk.is_managed_object(element) then
-			local td, elem_pos = element:get_type_definition()
-			if td:is_a("via.Transform") then
-				elem_pos = element:call("get_Position")
-			else
-				--try, gameobj = pcall(element.call, element, "get_GameObject")
-				gameobj = get_GameObject(element)
-				elem_pos = gameobj and gameobj:call("get_Transform"):call("get_Position")
-			end
-			if elem_pos then
-				local dist = lengths[elem_pos] or (elem_pos - position):length()
-				lengths[elem_pos] = dist
-				if not (dist ~= dist) then --if not NaN
-					unsorted_results[dist] = unsorted_results[dist] or {}
-					table.insert(unsorted_results[dist], i)
-				end
-			end
-		end
-	end
-	local counter = 0
-	for dist, packed_indices in orderedPairs(unsorted_results) do
-		for i, index in ipairs(packed_indices) do 
-			if not claimed[ tbl[index] ] then
-				table.insert(final_output, tbl[index])
-				table.insert(ordered_idxes, index)
-				claimed[ tbl[index] ] = true
-				if optional_max_dist then 
-					if dist < optional_max_dist then 
-						counter = counter + 1
-					end
-				end
-			end
-		end
-	end
-	return final_output, ordered_idxes, counter
-end
-
---Get the closest transforms to a given position:
-local function closest(position)
-	local result = scene:call("findComponents(System.Type)", sdk.typeof("via.Transform")):get_elements()
-	return result and sort(result, position) or nil
-end
-
---Call a native function:
-local function calln(object_name, method_name, args, arg2, arg3)
-	if type(args)=="table" then
-		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name, table.unpack(args))
-	elseif arg3 ~= nil then
-		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name, args, arg2, arg3)
-	elseif arg2 ~= nil then
-		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name, args, arg2)
-	elseif args ~= nil then
-		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name, args)
-	else
-		return sdk.call_native_func(sdk.get_native_singleton(object_name), sdk.find_type_definition(object_name), method_name)
 	end
 end
 
@@ -2644,42 +2510,9 @@ local function get_player(as_GameObject)
 	end
 end
 
---Get the first GameObject in the scene:
-local function get_first_gameobj()
-	local try, xform = pcall(scene.call, scene, "get_FirstTransform")
-	if try and xform and REFramework_Helpers.is_valid_obj(xform) then 
-		touched_gameobjects[xform] = touched_gameobjects[xform] or GameObject:new {xform=xform }
-		return touched_gameobjects[xform]
-	end
-end
 
---Retrieve all loaded via.Folders as a table:
-local function get_all_folders()
-	folders = get_folders(scene:call("get_Folders"), scene)
-	return folders
-end
 get_all_folders()
-
---Retrieve all loaded via.Transforms as a table:
-local function get_transforms()
-	transforms = scene and scene:call("findComponents(System.Type)", sdk.typeof("via.Transform")):add_ref()
-	transforms = transforms and transforms.get_elements and transforms:get_elements()
-	return transforms
-end
 get_transforms()
-
---Search all via.Folders for a search term:
-local function searchf(search_term)
-	local all_folders = scene and get_folders(scene:call("get_Folders"))
-	local results = {[search_term]=scene:call("findFolder", search_term)}
-	local lower_term = search_term:lower()
-	for name, folder in pairs(all_folders) do
-		if name:lower():find(lower_term) then
-			results[name] = folder
-		end
-	end
-	return results
-end
 
 --Creates a new named GameObject+transform and gives it components from a list of component names:
 local function create_gameobj(name, component_names, args, dont_rename)
@@ -3080,11 +2913,6 @@ local function log_stack_trace()
     end
     log.info(msg)
 end
-
---Global printer version of above:
--- function logv(value, value_name, layer_limit, layer, verbose)
--- 	return Display_Helpers.log_value(value, value_name, layer_limit, layer, verbose, true)
--- end
 
 --ChainNode class for handling Chain Bone Nodes -------------------------------------------------------------------------------------------
 local ChainNode = {
