@@ -86,14 +86,19 @@ function M.create(deps)
             end
             local type_unique_methods = {}
             for i, method in ipairs(td:get_methods()) do 
-                local param_types = method:get_param_types()
-                local method_name = method:get_name()
-                
+                local param_types = method:get_param_types() or {}
                 local method_full_name = method:get_name() .. "("
+
                 for i, param_type in ipairs(param_types) do
-                    method_full_name = method_full_name .. (((i ~= 1) and " ") or "") .. param_type:get_full_name() .. (((i ~= #param_types) and ",") or "")
+                    local param_name = "?" -- fallback if param_type is nil
+                    if param_type and param_type.get_full_name then
+                        param_name = param_type:get_full_name()
+                    end
+                    method_full_name = method_full_name .. (((i ~= 1) and ", " or "")) .. param_name
                 end
+
                 method_full_name = method_full_name .. ")"
+
                 
                 local no_dot_name = method_name:gsub("%.", "")
                 local type_unique_name = no_dot_name 
