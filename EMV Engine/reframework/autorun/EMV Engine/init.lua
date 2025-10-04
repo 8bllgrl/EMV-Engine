@@ -184,6 +184,54 @@ REMgdObj_objects.RETransform = scene and scene:call("get_FirstTransform") or nil
 
 getmetatable(REMgdObj_objects.ValueType).__is_vt = true
 
+
+local hashing_method = function(str) 
+	if type(str) == "string" and tonumber(str) == nil then
+		return static_funcs.string_hashing_method:call(nil, str)
+	end
+	return tonumber(str)
+end
+
+
+--Adds a prefab to the cache
+local add_pfb_to_cache = function(via_prefab, pfb_path)
+	RSCache.pfb_resources = RSCache.pfb_resources or {}
+	RN.pfb_resource_names = RN.pfb_resource_names or {}
+	if type(via_prefab)~="userdata" then
+		pfb_path = pfb_path or via_prefab
+		via_prefab = RSCache.pfb_resources[pfb_path] or constructor("via.Prefab")
+		via_prefab:call("set_Path", pfb_path)
+	end
+	pfb_path = pfb_path or via_prefab:call("get_Path")
+	if via_prefab:call("get_Exist") then
+		local current_idx = not RSCache.pfb_resources[pfb_path] and Utils.binsert(RN.pfb_resource_names, pfb_path)
+		RSCache.pfb_resources[pfb_path] = via_prefab
+		return current_idx, pfb_path, "pfb"
+	else
+		--re.msg_safe("File not found", 23525643634)
+		log.debug("File not found: " .. tostring(pfb_path))
+	end
+end
+
+
+--Function to make an REMgdObj object
+-- local create_REMgdObj = function(managed_object, keep_alive, used_props)
+-- 	_data[managed_object] = _data[managed_object]  or REMgdObj:__new(managed_object, used_props)
+-- 	if _data[managed_object] then
+-- 		_data[managed_object].keep_alive = keep_alive
+-- 		return _data[managed_object]
+-- 	end
+-- end
+--Function to make an REMgdObj object
+local function create_REMgdObj(managed_object, keep_alive, used_props)
+	_data[managed_object] = _data[managed_object]  or REMgdObj:__new(managed_object, used_props)
+	if _data[managed_object] then
+		_data[managed_object].keep_alive = keep_alive
+		return _data[managed_object]
+	end
+end
+
+
 -- move up later
 local EMV_Dependencies = {
     -- Core REFramework objects and global state
@@ -218,6 +266,14 @@ local EMV_Dependencies = {
     orderedPairs = orderedPairs,
 	scene = scene,
 	static_objs = static_objs,
+
+
+	-- INJECTED SERVICE FUNCTIONS (Defined above)
+	metadata_methods = metadata_methods, 
+
+	create_REMgdObj = create_REMgdObj, -- Used in Reflection_Utils.get_mgd_obj_name
+	hashing_method = hashing_method,   -- Used in Reflection_Utils.get_mgd_obj_name
+	add_pfb_to_cache = add_pfb_to_cache, -- Used in Reflection_Utils.get_mgd_obj_name
 }
 
 
@@ -225,6 +281,12 @@ local EMV_Dependencies = {
 -- 1. Initialize REFramework_Helpers. The local variable REFramework_Helpers now holds the exports.
 REFramework_Helpers = require("REFramework_Helpers").create(EMV_Dependencies)
 EMV_Dependencies.REFramework_Helpers = REFramework_Helpers
+
+-- local get_GameObject = REFramework_Helpers.get_GameObject 
+-- EMV_Dependencies.get_GameObject = get_GameObject 
+
+Reflection_Utils = require("Reflection_Utils").create(EMV_Dependencies)
+EMV_Dependencies.Reflection_Utils = Reflection_Utils
 
 -- 3. Initialize Display_Helpers, which can now safely access the required helper functions.
 Display_Helpers = require("Display_Helpers").create(EMV_Dependencies)
@@ -234,11 +296,28 @@ ObjectSearchers = require("ObjectSearchers").create(EMV_Dependencies)
 EMV_Dependencies.ObjectSearchers = ObjectSearchers
 
 
--- Where i put some globals
-_G.logv = Display_Helpers.logv
+-- 1. Declare ALL local service upvalues needed later
+local get_mgd_obj_name = Reflection_Utils.get_mgd_obj_name
+local get_fields_and_methods = Reflection_Utils.get_fields_and_methods
+local is_obj_or_vt = REFramework_Helpers.is_obj_or_vt
+local get_GameObject = REFramework_Helpers.get_GameObject
+local logv = Display_Helpers.logv
+local write_valuetype = REFramework_Helpers.write_valuetype
+-- local create_REMgdObj -- This MUST be defined if it was declared in the deleted block
+local deferred_call -- This MUST be defined if it was declared in the deleted block
+local clear_object -- This MUST be defined if it was declared in the deleted block
+local lua_find_component -- This MUST be defined if it was declared in the deleted block
+local obj_to_json -- This MUST be defined if it was declared in the deleted block
+local jsonify_table -- This MUST be defined if it was declared in the deleted block
+local add_pfb_to_cache -- This MUST be defined if it was declared in the deleted block
+-- ... (add ALL other locals that were in the deleted block and needed later) ...
+
+-- Global ImGui/RE Aliases
+_G.logv = logv -- Use local variable
 _G.msg_safe = Display_Helpers.msg_safe
 _G.to_obj = REFramework_Helpers.to_obj
-_G.get_GameObject = REFramework_Helpers.get_GameObject
+_G.get_GameObject = get_GameObject -- Use local variable
+
 imgui.input_text_colored = Display_Helpers.input_text_colored
 imgui.tooltip = Display_Helpers.tooltip 
 imgui.tree_node_colored = Display_Helpers.tree_node_colored
@@ -247,40 +326,402 @@ imgui.show_imgui_vec4 = Display_Helpers.show_imgui_vec4
 
 
 
---local addresses of important functions and tables defined later:
-EMV = {}
-local GameObject
-local BHVT
-local Hotkey
-local MoveSequencer
-local read_imgui_element
-local read_imgui_pairs_table
-local show_imgui_mats
-local get_mgd_obj_name
-local create_REMgdObj
-local add_to_REMgdObj
-local obj_to_json
-local jsonify_table
-local get_fields_and_methods
-local add_pfb_to_cache
-local lua_find_component
-local deferred_call
-local hashing_method
-local clear_object
-local get_GameObject = REFramework_Helpers.get_GameObject
+local function lua_get_enumerator(m_obj, o_tbl)
+	if m_obj and pcall(sdk.call_object_func, m_obj, ".ctor", 0) then
+		local elements = {}
+		local fields = m_obj:get_type_definition():get_fields()
+		local wrap_obj
+		for i, field in ipairs(fields) do 
+			if field:get_name():find("wrap") then   --wrappers ("Enumerator"s) cant pcall movenext without crashing to desktop unless use .ctor
+				pcall(sdk.call_object_func, m_obj, "MoveNext")
+				wrap_obj = fields[i]:get_data(m_obj) --({pcall(fields[i].get_data, fields[i], m_obj)})[2]
+				if wrap_obj then
+					m_obj = m_obj:add_ref()
+					m_obj:call("SystemCollectionsIEnumeratorReset")
+					wrap_obj = wrap_obj:add_ref()
+					wrap_obj:call("SystemCollectionsIEnumeratorReset")
+					pcall(sdk.call_object_func, wrap_obj, ".ctor", 0) 
+				end
+				break
+			end
+		end
+		local state, is_obj = fields[1]:get_data(m_obj), false
+		while (state == 1 or state == 0) and ({pcall(sdk.call_object_func, m_obj, "MoveNext")})[2] == true do
+			local current, val = fields[2]:get_data(m_obj), nil
+			state = fields[1]:get_data(m_obj)
+			if sdk.is_managed_object(current) then 
+				val = current:get_field("mValue")
+				if val==nil then 
+					is_obj = true
+					current = current:add_ref()
+				end
+			end
+			if current ~= nil then
+				table.insert(elements, val or current)
+			end
+		end
+		pcall(function()
+			if wrap_obj then wrap_obj:call("SystemCollectionsIEnumeratorReset") end
+			if wrap_obj then wrap_obj:call("SystemIDisposableDispose") end
+			m_obj:call("SystemCollectionsIEnumeratorReset")
+			m_obj:call("SystemIDisposableDispose")
+		end)
+		if o_tbl and #elements > 10 then 
+			o_tbl.delayed_names = uptime
+		end
+		return elements
+	end
+end
 
-local find = ObjectSearchers.find
-local findc = ObjectSearchers.findc
-local findtdm = ObjectSearchers.findtdm
-local search = ObjectSearchers.search
-local sort_components = ObjectSearchers.sort_components
-local sort = ObjectSearchers.sort
-local closest = ObjectSearchers.closest
-local calln = ObjectSearchers.calln
-local searchf = ObjectSearchers.searchf
-local get_all_folders = ObjectSearchers.get_all_folders
-local get_transforms = ObjectSearchers.get_transforms
-local get_first_gameobj = ObjectSearchers.get_first_gameobj
+
+local function lua_get_system_array(sys_array, allow_empty, convert_to_table)
+	if not sys_array or not sys_array.get_type_definition then return (allow_empty and {}) end
+	local is_wrap = (sys_array:get_type_definition():get_name():sub(1,12) == "WrappedArray")
+	local system_array
+	if is_wrap or sys_array.get_Count then
+		system_array = {}
+		for i=1, sys_array:call("get_Count") do
+			system_array[i] = sys_array[i-1]--sys_array:call("get_Item", i)
+		end
+	end
+	if not system_array then
+		system_array = not is_wrap and sys_array.get_elements and sys_array:get_elements()
+		if not system_array then 
+			system_array = sys_array:get_field("mItems") or sys_array:get_field("_items")
+			system_array = system_array and system_array.get_elements and system_array:get_elements()
+		end
+	end
+	if system_array and convert_to_table then
+		if convert_to_table == true then
+			system_array = Utils.vector_to_table(system_array)
+		elseif (convert_to_table == 1) and tostring(system_array[1]):find("[RV][Ea][Ml][au][ne][aT]") then 
+			local dict, used_names = {}, {}
+			for i, object in ipairs(system_array) do
+				local name, idx = Reflection_Utils.get_mgd_obj_name(object) or i, 1
+				local tmp_name = name
+				while used_names[tmp_name] do 
+					tmp_name = idx .. name
+					idx = idx + 1
+				end
+				used_names[tmp_name] = true
+				name = tmp_name
+				dict[name] = object
+			end
+			system_array = dict
+		end
+	end
+	return (allow_empty and system_array) or (system_array and system_array[1] and system_array)
+end
+
+local get_gameobj_path = function(gameobj) 
+	local try, folder = pcall(gameobj.call, gameobj, "get_Folder")
+	return try and (((folder and (folder:call("get_Path") or "") .. "/") or "") .. gameobj:call("get_Name"))
+end
+
+
+
+--Class that supports indexable managed objects by constructing sub tables of all their important attributes and updating them ------------------------------
+REMgdObj = {
+	
+	__types = {},
+	
+	__new = function(self, obj, used_props, o) 
+		
+		if not obj or type(obj) == "number" or not Utils.can_index(obj) or not obj.get_type_definition then
+			print("REMgdObj Failed step 1")
+			return nil
+		end
+		
+		o = o or _data[obj] or {}
+		self.__index = self
+		
+		local try, otype = pcall(obj.get_type_definition, obj)
+		local is_vt = (try and otype and otype:is_value_type()) or tostring(obj):find("::ValueType") or nil
+		
+		if not try or not otype or (not is_vt and not REFramework_Helpers.is_valid_obj(obj)) or not pcall(obj.call, obj, "get_Type") then 
+			print("REMgdObj Failed step 2")
+			return 
+		end
+		
+		local do_all_props = not used_props
+		o.is_vt = (is_vt and otype:get_method("Parse(System.String)") and "parse") or is_vt
+		o.obj = obj
+		o.type = otype
+		o.name = otype:get_name() or ""
+		o.name_full = otype:get_full_name() or ""
+		o.used_props = {}
+		o.skipped_props = not do_all_props or nil
+		o.is_arr = otype:is_a("System.Array") or nil
+		--print("REMgdObj Creating " .. o.name_full)
+		
+		if not do_all_props then 
+			for i, name in ipairs(used_props) do 
+				o.used_props[name] = i
+			end
+		end
+		
+		o.components = (otype:is_a("via.GameObject") and lua_get_system_array(obj:call("get_Components"), true)) or nil
+		if otype:is_a("via.Component") or o.components then 
+			o.is_component = (otype:is_a("via.Transform") and 2) or (not o.components) or nil
+			o.gameobj = o.is_component and get_GameObject(obj) or (not o.is_component and obj) or nil
+			if o.gameobj then
+				o.gameobj_name = o.gameobj:call("get_Name")
+				o.xform = o.gameobj:call("get_Transform")
+				o.folder = o.gameobj:call("get_Folder")
+				if o.is_component  == 2 then
+					o.parent = o.xform:call("get_Parent")
+					o.children = lua_get_enumerator(o.xform:call("get_Children"), o)
+				end
+				if o.components then
+					for i, component in ipairs(o.components) do
+						o[component:get_type_definition():get_name()] = component
+					end
+				end
+
+				o.key_hash = hashing_method(get_gameobj_path(o.gameobj) .. o.name_full)
+			end
+		elseif otype:is_a("via.Folder") then
+			o.parent = obj:call("get_Parent")
+			o.children = lua_get_enumerator(obj:call("get_Children"), o)
+			o.child_folders = lua_get_enumerator(obj:call("get_Folders"), o) or {}
+			o.scn_path = REFramework_Helpers.read_unicode_string(obj:get_address()+statics.scn_path_offs, true)
+		elseif otype:is_a("via.gui.Control") then
+			o.gui = GUITree:new{obj=obj}
+		end
+		
+		local propdata = metadata_methods[o.name_full] or Reflection_Utils.get_fields_and_methods(otype)
+		o.methods = propdata.methods
+		o.fields = next(propdata.fields) and propdata.fields
+		
+		if o.fields then
+			o.field_data = {}
+			--for name, field in pairs(o.fields) do
+			for i, field_name in ipairs(propdata.field_names) do 
+				if do_all_props or o.used_props[field_name] then
+					local field = propdata.fields[field_name]
+					o.field_data[field_name] = VarData:new{
+						name=field_name,
+						o_tbl=o,
+						field=field, 
+						ret_type=field:get_type(),
+						index=i,
+					}
+					o.used_props[field_name] = Utils.get_table_size(propdata.field_names)
+				end
+			end
+		end
+		
+		--for name, field in pairs(propdata.fields) do
+		--	o[name:match("%<(.+)%>") or name] = field:get_data(obj)
+		--end
+		
+		--for name, method in pairs(propdata.functions) do
+		--	o[name] = method
+		--end
+		
+		if next(propdata.counts) then 
+			local counts = { counts=propdata.counts, counts_names={}, method=(SettingsCache.generic_count_methods[o.name_full] and otype:get_method(SettingsCache.generic_count_methods[o.name_full])) }
+			local count_method_name = counts.method and counts.method:get_name():sub(4,-1):gsub("Count", "")
+			for method_name, method in orderedPairs(propdata.counts) do 
+				table.insert(counts.counts_names, method_name)
+				counts.idx = (method_name == count_method_name) and #counts.counts_names
+			end
+			counts.idx = propdata.counts_idx or counts.idx or 1 
+			o.counts = counts
+		end
+		
+		o.name_methods = propdata.name_methods
+		o.item_type = propdata.item_type
+		o.name_methods = propdata.name_methods
+		o.Name = Reflection_Utils.get_mgd_obj_name(obj, o) or ""
+		
+		--initial properties setup:
+		if next(propdata.getters) then
+			o.props = {}
+			o.props_named = {}
+			local skeleton
+			for i, method_name in ipairs(propdata.method_names) do
+				if do_all_props or o.used_props[method_name] then
+					if (method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1) and not method_name:find("__") then --(method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1)
+						if SettingsCache.show_all_fields or not (propdata.clean_field_names[method_name:sub(4, -1):gsub("_", ""):lower()] or propdata.clean_field_names[method_name:sub(4, -1):lower()]) then --is accessed already by a field
+							local full_name = propdata.method_full_names[method_name]
+							local full_name_method = o.type:get_method(full_name)
+							method_name = method_name:sub(4, -1) 
+							if full_name_method and propdata.getters[method_name] and not misc_vars.skip_props[method_name] and (not SettingsCache.exception_methods[o.name_full] or not SettingsCache.exception_methods[o.name_full][method_name]) then --
+								local method = propdata.getters[method_name]
+								local prop = VarData:new{
+									o_tbl=o,
+									name=method_name, 
+									full_name=full_name, 
+									get=full_name_method, 
+									set=propdata.setters[method_name], 
+									count=propdata.counts[method_name], 
+									ret_type=method:get_return_type(),
+									is_count = not not method_name:find("[CN][ou][um][n]?[t]?$") or nil,
+								}
+								table.insert(o.props, prop)
+								o.props_named[prop.name] = prop
+								o.used_props[method_name] = #o.props
+								--if o[method_name] and not bad_obj then
+									--re.msg_safe("Prop " .. prop.name .. " name conflict in console object 'bad_obj'!", 1241545)
+								--	bad_obj = obj
+								--else
+								--	o[method_name] = o[method_name] or prop
+								--end
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		o.do_auto_expand = ((o.fields or o.props) and not o.item_type and not o.is_arr and not o.dict and o.name~="Transform" and not o.name:find("^Wrapped")) or nil --and not o.is_vt --(o.is_arr and not o.elements[1])
+		o.key_hash = o.key_hash or hashing_method(o.name_full)
+		o.propdata = propdata
+		self.obj = obj
+		_data[obj] = o
+		metadata_methods[o.name_full] = propdata
+		
+		return setmetatable(o, self)
+	end,
+	
+	
+	__set_owner = function(self, owned_obj)
+		local cv_tbl = _data[owned_obj] and _data[owned_obj]._
+		if cv_tbl and not cv_tbl.xform and not cv_tbl.child_folders and (cv_tbl ~= _data[self.obj]) then
+			cv_tbl.owner = self.obj --((self.get_elements or _data[self.obj].methods.MoveNext) and _data[self.obj].owner) or 
+		end
+	end,
+	
+	__update = function(self, is_known_valid, forced_update)
+		
+		if is_known_valid or _data[self.obj].is_vt or sdk.is_managed_object(self.obj) then
+		
+			local o_tbl = _data[self.obj]
+			if not o_tbl then return end
+			
+			if o_tbl.is_open and o_tbl.skipped_props then --activate all props
+				_data[self.obj] = create_REMgdObj(o_tbl.obj, o_tbl.keep_alive)
+				return
+			end
+			
+			o_tbl.pos = nil
+			local propdata = o_tbl.propdata
+			local obj = o_tbl.obj
+			forced_update = forced_update or o_tbl.keep_updating
+			
+			--Update owner
+			if o_tbl.xform then 
+				o_tbl.go = touched_gameobjects[o_tbl.xform] or held_transforms[o_tbl.xform] or o_tbl.go
+			elseif o_tbl.owner and _data[o_tbl.owner] then 
+				o_tbl.xform = _data[o_tbl.owner].xform
+				o_tbl.gameobj = o_tbl.gameobj or _data[o_tbl.owner].gameobj
+				o_tbl.gameobj_name = o_tbl.gameobj_name or _data[o_tbl.owner].gameobj_name
+				if not o_tbl.folder and o_tbl.gameobj then 
+					o_tbl.key_hash = hashing_method((get_gameobj_path(o_tbl.gameobj) or "") .. o_tbl.name_full)
+				end
+				o_tbl.folder = o_tbl.folder or _data[o_tbl.owner].folder
+			end
+			
+			--Update Enumerators
+			if o_tbl.methods and o_tbl.methods.MoveNext and (o_tbl.elements == nil) then --populate enumerators. This is a dangerous operation so it updates as rarely as possible
+				o_tbl.elements, o_tbl.element_names = lua_get_enumerator(obj, o_tbl)
+				o_tbl.mysize = #o_tbl.elements
+			end
+			
+			--Update fields
+			if o_tbl.fields then
+				for field_name, field in pairs(o_tbl.fields) do --update fields every frame, since they are simple
+					local fdata = o_tbl.field_data[field_name]
+					if fdata.new_self then
+						fdata = fdata.new_self
+						o_tbl.field_data[field_name] = fdata
+					end
+					local fname = (field_name:match("%<(.+)%>") or field_name)
+					fdata:update_field(o_tbl, forced_update)
+				end
+			end
+			
+			--Update loose array vardata:
+			if o_tbl.item_data and not o_tbl.is_arr then
+				for prop_name, tbl in pairs(o_tbl.item_data) do
+					for k, vardata in ipairs(tbl) do
+						if vardata.new_self then tbl[k] = vardata.new_self end
+						--vardata:update_prop(o_tbl, k-1)
+					end
+				end
+			end
+			
+			--Update counts
+			if o_tbl.counts then
+				o_tbl.counts.method = o_tbl.counts.counts[ o_tbl.counts.counts_names[o_tbl.counts.idx] ] or o_tbl.counts.method
+				SettingsCache.generic_count_methods[o_tbl.name_full] = (o_tbl.counts.method and o_tbl.counts.method:get_name()) or SettingsCache.generic_count_methods[o_tbl.name_full]
+			end
+			
+			--Update properties
+			if o_tbl.props then 
+				for i, prop in ipairs(o_tbl.props) do 
+					if prop.new_self then
+						prop = prop.new_self
+						o_tbl.props[i] = prop
+						o_tbl.props_named[prop.name] = prop
+					end
+					prop:update_prop(o_tbl, i, forced_update)
+				end
+			end
+			
+			--Fix element names (these may randomly crash the game if collected on-frame, so sometimes it is delayed)
+			if o_tbl.elements then 
+				if (o_tbl.elements[1] ~= nil) and (not o_tbl.element_names or not o_tbl.element_names[1]) and (not o_tbl.delayed_names or (uptime-o_tbl.delayed_names > 0.66)) then
+					o_tbl.element_names = {}
+					o_tbl.item_data = {}
+					o_tbl.delayed_names = nil
+					for i, element in ipairs(o_tbl.elements) do 
+						table.insert(o_tbl.element_names, Reflection_Utils.get_mgd_obj_name(element, o_tbl, i))
+					end
+				end
+			end
+			
+			--Specialty
+			if o_tbl.name == "Chain" then
+				if forced_update or not o_tbl.cgroups  then 
+					o_tbl.cgroups = {}
+					local all_settings = {}
+					for i = 0, obj:call("getGroupCount") - 1 do 
+						table.insert(o_tbl.cgroups, ChainGroup:new { group=obj:call("getGroup", i), xform=o_tbl.xform, all_settings=all_settings } )
+					end
+				end
+				if o_tbl.show_all_joints and o_tbl.cgroups and o_tbl.cgroups[1] then 
+					for i, group in ipairs(o_tbl.cgroups) do
+						group:update(true)
+					end
+					o_tbl.last_opened = uptime --prevents deletion
+				end
+			end
+		else
+			_data[self.obj].invalid = true
+		end
+	end,
+}
+
+
+--Turn a string into a murmur3 hash -------------------------------------------------------------------------------------------------------------
+
+
+
+--TODO:  replace all occurances, or refac whole file to do this?
+-- local find = ObjectSearchers.find
+-- local findc = ObjectSearchers.findc
+-- local findtdm = ObjectSearchers.findtdm
+-- local search = ObjectSearchers.search
+-- local sort_components = ObjectSearchers.sort_components
+-- local sort = ObjectSearchers.sort
+-- local closest = ObjectSearchers.closest
+-- local calln = ObjectSearchers.calln
+-- local searchf = ObjectSearchers.searchf
+-- local get_all_folders = ObjectSearchers.get_all_folders
+-- local get_transforms = ObjectSearchers.get_transforms
+-- local get_first_gameobj = ObjectSearchers.get_first_gameobj
 
 
 --Table and lua object Functions ----------------------------------------------------------------------------------------------------------------------------
@@ -1554,18 +1995,8 @@ MoveSequencer = {
 	end,
 }
 
---Turn a string into a murmur3 hash -------------------------------------------------------------------------------------------------------------
-hashing_method = function(str) 
-	if type(str) == "string" and tonumber(str) == nil then
-		return static_funcs.string_hashing_method:call(nil, str)
-	end
-	return tonumber(str)
-end
 
-local get_gameobj_path = function(gameobj) 
-	local try, folder = pcall(gameobj.call, gameobj, "get_Folder")
-	return try and (((folder and (folder:call("get_Path") or "") .. "/") or "") .. gameobj:call("get_Name"))
-end
+
 
 --Get or create a GameObject or AnimObject class from a gameobj -----------------------------------------------------------------------------
 local function get_anim_object(gameobj, args, use_pcall)
@@ -1687,7 +2118,7 @@ obj_to_json = function(obj, do_only_metadata, args, doForce)
 		local used_fields = {}
 		
 		if not do_only_metadata or is_vt then 
-			local propdata = metadata_methods[name_full] or get_fields_and_methods(otype)
+			local propdata = metadata_methods[name_full] or Reflection_Utils.get_fields_and_methods(otype)
 			for field_name, field in pairs(propdata.fields) do
 				if not field:is_static() then
 					j_tbl[field_name] = field:get_data(obj)
@@ -2022,7 +2453,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 							 
 						elseif (tbl.__is_vt or set_props) and ((tbl.__typedef ~= "via.Scene") and not (tbl.__typedef:find("[<>,%[%]]"))) then
 							
-							local propdata = get_fields_and_methods(typedef)
+							local propdata = Reflection_Utils.get_fields_and_methods(typedef)
 							tbl.__address = nil
 							local converted_tbl = recurse(tbl, key, level + 1) or {}
 							
@@ -2059,7 +2490,7 @@ jsonify_table = function(tbl_input, go_back_to_table, args)
 														sub_obj = to_set[i] 
 													end
 													local is_obj = sub_obj and sdk.is_managed_object(sub_obj)
-													local sub_pd = is_obj and (metadata_methods[sub_obj] or get_fields_and_methods(sub_obj:get_type_definition()))
+													local sub_pd = is_obj and (metadata_methods[sub_obj] or Reflection_Utils.get_fields_and_methods(sub_obj:get_type_definition()))
 													--test2 = {item, sub_obj, sub_pd, to_set, converted_tbl, tbl}
 													if type(item) == "table" then
 														if sub_pd then 
@@ -2225,96 +2656,6 @@ local function constructor(type_name)
 	end
 end
 
---GameObject and component based functions ------------------------------------------------------------------------------------------------
---Get contents of an Enumerator
-local function lua_get_enumerator(m_obj, o_tbl)
-	if m_obj and pcall(sdk.call_object_func, m_obj, ".ctor", 0) then
-		local elements = {}
-		local fields = m_obj:get_type_definition():get_fields()
-		local wrap_obj
-		for i, field in ipairs(fields) do 
-			if field:get_name():find("wrap") then   --wrappers ("Enumerator"s) cant pcall movenext without crashing to desktop unless use .ctor
-				pcall(sdk.call_object_func, m_obj, "MoveNext")
-				wrap_obj = fields[i]:get_data(m_obj) --({pcall(fields[i].get_data, fields[i], m_obj)})[2]
-				if wrap_obj then
-					m_obj = m_obj:add_ref()
-					m_obj:call("SystemCollectionsIEnumeratorReset")
-					wrap_obj = wrap_obj:add_ref()
-					wrap_obj:call("SystemCollectionsIEnumeratorReset")
-					pcall(sdk.call_object_func, wrap_obj, ".ctor", 0) 
-				end
-				break
-			end
-		end
-		local state, is_obj = fields[1]:get_data(m_obj), false
-		while (state == 1 or state == 0) and ({pcall(sdk.call_object_func, m_obj, "MoveNext")})[2] == true do
-			local current, val = fields[2]:get_data(m_obj), nil
-			state = fields[1]:get_data(m_obj)
-			if sdk.is_managed_object(current) then 
-				val = current:get_field("mValue")
-				if val==nil then 
-					is_obj = true
-					current = current:add_ref()
-				end
-			end
-			if current ~= nil then
-				table.insert(elements, val or current)
-			end
-		end
-		pcall(function()
-			if wrap_obj then wrap_obj:call("SystemCollectionsIEnumeratorReset") end
-			if wrap_obj then wrap_obj:call("SystemIDisposableDispose") end
-			m_obj:call("SystemCollectionsIEnumeratorReset")
-			m_obj:call("SystemIDisposableDispose")
-		end)
-		if o_tbl and #elements > 10 then 
-			o_tbl.delayed_names = uptime
-		end
-		return elements
-	end
-end
-
-
---Gets a SystemArray, List or WrappedArrayContainer
-local function lua_get_system_array(sys_array, allow_empty, convert_to_table)
-	if not sys_array or not sys_array.get_type_definition then return (allow_empty and {}) end
-	local is_wrap = (sys_array:get_type_definition():get_name():sub(1,12) == "WrappedArray")
-	local system_array
-	if is_wrap or sys_array.get_Count then
-		system_array = {}
-		for i=1, sys_array:call("get_Count") do
-			system_array[i] = sys_array[i-1]--sys_array:call("get_Item", i)
-		end
-	end
-	if not system_array then
-		system_array = not is_wrap and sys_array.get_elements and sys_array:get_elements()
-		if not system_array then 
-			system_array = sys_array:get_field("mItems") or sys_array:get_field("_items")
-			system_array = system_array and system_array.get_elements and system_array:get_elements()
-		end
-	end
-	if system_array and convert_to_table then
-		if convert_to_table == true then
-			system_array = Utils.vector_to_table(system_array)
-		elseif (convert_to_table == 1) and tostring(system_array[1]):find("[RV][Ea][Ml][au][ne][aT]") then 
-			local dict, used_names = {}, {}
-			for i, object in ipairs(system_array) do
-				local name, idx = get_mgd_obj_name(object) or i, 1
-				local tmp_name = name
-				while used_names[tmp_name] do 
-					tmp_name = idx .. name
-					idx = idx + 1
-				end
-				used_names[tmp_name] = true
-				name = tmp_name
-				dict[name] = object
-			end
-			system_array = dict
-		end
-	end
-	return (allow_empty and system_array) or (system_array and system_array[1] and system_array)
-end
-
 --Get components from an xform (less error prone)
 local function lua_get_components(xform_or_component) --xform expected
 	local comps = {}
@@ -2459,25 +2800,6 @@ local function add_resource_to_cache(resource_holder, paired_resource_holder, da
 	return current_idx, resource_path, ext
 end
 
---Adds a prefab to the cache
-add_pfb_to_cache = function(via_prefab, pfb_path)
-	RSCache.pfb_resources = RSCache.pfb_resources or {}
-	RN.pfb_resource_names = RN.pfb_resource_names or {}
-	if type(via_prefab)~="userdata" then
-		pfb_path = pfb_path or via_prefab
-		via_prefab = RSCache.pfb_resources[pfb_path] or constructor("via.Prefab")
-		via_prefab:call("set_Path", pfb_path)
-	end
-	pfb_path = pfb_path or via_prefab:call("get_Path")
-	if via_prefab:call("get_Exist") then
-		local current_idx = not RSCache.pfb_resources[pfb_path] and Utils.binsert(RN.pfb_resource_names, pfb_path)
-		RSCache.pfb_resources[pfb_path] = via_prefab
-		return current_idx, pfb_path, "pfb"
-	else
-		--re.msg_safe("File not found", 23525643634)
-		log.debug("File not found: " .. tostring(pfb_path))
-	end
-end
 
 --Get the local player -----------------------------------------------------------------------------------------------------------------
 local function get_player(as_GameObject)
@@ -2490,10 +2812,10 @@ local function get_player(as_GameObject)
 		elseif isMHR then 
 			player = static_objs.playermanager:call("findMasterPlayer")
 		elseif isRE8 then
-			xform = find("app.PlayerUpdaterBase")[1]
+			xform = ObjectSearchers.find("app.PlayerUpdaterBase")[1]
 			player = xform and get_GameObject(xform)
 		elseif isRE7 then
-			xform = find("app.PlayerCamera")[1]
+			xform = ObjectSearchers.find("app.PlayerCamera")[1]
 			player = xform and get_GameObject(xform)
 		elseif isRE4 then
 			local player_context = static_objs.playermanager:call("getPlayerContextRef")
@@ -2511,8 +2833,8 @@ local function get_player(as_GameObject)
 end
 
 
-get_all_folders()
-get_transforms()
+ObjectSearchers.get_all_folders()
+ObjectSearchers.get_transforms()
 
 --Creates a new named GameObject+transform and gives it components from a list of component names:
 local function create_gameobj(name, component_names, args, dont_rename)
@@ -2698,13 +3020,6 @@ end
 
 --Check a SystemArray typedef for what trypedef the array contains. Caches results
 local cached_array_typedefs = REFramework_Helpers.cached_array_typedefs
-
---Manually writes a ValueType at a set offset
-local function write_valuetype(parent_obj, offset, value)
-    for i=0, value.type:get_valuetype_size()-1 do
-        parent_obj:write_byte(offset+i, value:read_byte(i))
-    end
-end
 
 --Manually reads a unicode string at an address
 
@@ -3044,300 +3359,6 @@ local ChainGroup = {
 	end,
 }
 
---REMgdObj and its functions ----------------------------------------------------------------------------------------------------
---Scan a typedef for the best method to check the managed object's name
-local function get_name_methods(ret_type, propdata, do_items)
-	
-	local ret_typename = ret_type:get_full_name()
-	propdata = propdata or metadata_methods[ret_typename] or get_fields_and_methods(ret_type)
-	local search_terms = {"Name", "Path", "Comment", "Message", "Title", "Description", "Id"} --, "All", "Numbers"
-	local name_methods = (not do_items and propdata.name_methods) or (do_items and propdata.item_name_methods)
-	local num_strings = 0
-	--log.debug("########## " .. ret_typename)
-	
-	if not name_methods then
-		name_methods = {}
-		local uniques = {}
-		for i, search_term in ipairs(search_terms) do
-			if i == #search_terms or i == 1 or num_strings > 0 then
-				for f, field_name in pairs(propdata.field_names) do 
-					--log.debug(field_name)
-					if not uniques[field_name] then
-						local field = propdata.fields[field_name]
-						local ftype = field:get_type()
-						if ftype then
-							local is_resource = ftype:get_name():find("Holder$")
-							local is_str = ftype:is_a("System.String")
-							local is_guid = ftype:is_a("System.Guid")
-							
-							local is_enum = i==#search_terms and ftype:is_a("System.Enum")
-							if i==1 and is_str then num_strings = num_strings + 1 end
-							
-							--if (is_enum or is_resource or (is_str and ((field_name:sub(-4) == search_term)))) then --or (ftype:is_primitive() and i==4) then
-							if (is_enum or is_resource or (is_str and ((field_name:sub(-4) == search_term)))) or (is_guid and field_name:find(search_term)) then
-								uniques[field_name] = field
-								table.insert(name_methods, field_name)
-								if i == #search_terms then goto exit end
-							end
-						end
-					end     
-				end
-				for m, name in pairs(propdata.method_names) do
-					local method = propdata.methods[name]
-					if not uniques[name] and method:get_num_params() == 0 then
-						local mtype = method:get_return_type()
-						local is_resource = mtype:get_name():find("Holder$")
-						local is_str = mtype:is_a("System.String")
-						local is_guid = mtype:is_a("System.Guid")
-						local is_enum = i==#search_terms and mtype:is_a("System.Enum")
-						if i==1 and is_str then num_strings = num_strings + 1 end
-						
-						--if (name:find("[Gg]et") == 1 or name:find("[Hh]as") == 1) and (is_enum or is_resource or (is_str and ((name:sub(-4) == search_term)))) then --or (mtype:is_primitive() and i==4) then
-						if (name:find("[Gg]et") == 1 or name:find("[Hh]as") == 1) and ((is_enum or is_resource or (is_str and ((name:sub(-4) == search_term)))) or (is_guid and name:find(search_term))) then
-							uniques[name] = method
-							table.insert(name_methods, name)
-							if i == #search_terms then goto exit end
-						end
-					end
-				end
-			end
-		end
-		::exit::
-	end
-	if do_items then 
-		propdata.item_name_methods = name_methods
-	else
-		propdata.name_methods = name_methods
-	end
-	return name_methods
-end
-
---Collect and return all applicable fields, methods, counts etc from a managed object and store them in a dictionary
-get_fields_and_methods = function(typedef)
-	
-	local td_name = typedef:get_full_name()
-	local propdata = {
-		methods = {},
-		method_names = {},
-		method_full_names = {},
-		functions = {},
-		fields = {},
-		field_names = {},
-		clean_field_names = {},
-		getters = {},
-		setters = {},
-		counts = {},
-		simple_methods = {},
-	}
-	
-	local td = typedef
-	local unique_methods = {}
-	while td ~= nil do
-		for i, field in ipairs(td:get_fields()) do 
-			--if not field:is_static() then
-				local field_name = field:get_name()
-				if not propdata.fields[field_name] then
-					table.insert(propdata.field_names, field_name)
-					propdata.fields[field_name] = field
-					propdata.clean_field_names[(field_name:match("%<(.+)%>") or field_name):lower()] = i
-				end
-			--end
-		end
-		local type_unique_methods = {}
-		for i, method in ipairs(td:get_methods()) do 
-			local param_types = method:get_param_types()
-			local method_name = method:get_name()
-			--if not method_name:find("GetType") then
-				local method_full_name = method:get_name() .. "("
-				for i, param_type in ipairs(param_types) do
-					method_full_name = method_full_name .. (((i ~= 1) and " ") or "") .. param_type:get_full_name() .. (((i ~= #param_types) and ",") or "")
-				end
-				method_full_name = method_full_name .. ")"
-				
-				local no_dot_name = method_name:gsub("%.", "")
-				local type_unique_name = no_dot_name 
-				local ctr = 0
-				while type_unique_methods[type_unique_name] do
-					ctr = ctr + 1
-					type_unique_name = no_dot_name .. ctr
-				end
-				
-				type_unique_methods[type_unique_name] = method
-				local unique_name = type_unique_name
-				if unique_methods[unique_name] then
-					unique_name = unique_name .. "__" .. td:get_name()
-				end
-				
-				unique_methods[unique_name] = method
-				propdata.methods[unique_name] = method
-				table.insert(propdata.method_names, unique_name)
-				propdata.method_full_names[unique_name] = method_full_name
-				
-				if not propdata.clean_field_names[unique_name:lower()] then
-					propdata.functions[unique_name] =
-						function(obj, args)
-							if args then 
-								return obj:call(method_full_name, table.unpack(args))
-							end
-							return obj:call(method_full_name)
-						end
-					if method:get_num_params() == 0 and (method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1) then 
-						local found_idx = method_name:find("Count") or method_name:find("Num")
-						local found_idx = found_idx and ((found_idx == method_name:len()-4) or (found_idx == method_name:len()-2)) and found_idx
-						if found_idx then
-							propdata.counts[method_name:sub(1, found_idx - 1):sub(4, -1)] = method
-						end
-					end
-				end
-			--end
-		end
-		td = td:get_parent_type()
-	end
-	
-	for i, name in ipairs(propdata.method_names) do 
-		
-		local method = propdata.methods[name]
-		local lower_name = name:lower()
-		local short_name = name:sub(4, -1)
-		local num_params = method:get_num_params()
-		local ret_typename = method:get_return_type():get_full_name()
-		
-		if num_params == 0 and (ret_typename == "System.Void" or (ret_typename == "System.Boolean" and lower_name:find("set")==1)) and not name:find("__") then
-			propdata.simple_methods[name] = method
-		elseif name:len() > 5 then
-			if (num_params == 0 or num_params == 1) and (lower_name:find("get") == 1 or lower_name:find("has") == 1) then 
-				if num_params == 1 then 
-					if method:get_param_types()[1]:get_full_name():find("Int") then
-						for count_name, count_method in pairs(propdata.counts) do 
-							if short_name:find(count_name) or count_name:find(short_name) or short_name:find(count_name:gsub("%_", "")) then 
-								propdata.counts[short_name] = propdata.counts[short_name] or count_method
-								if count_name:find("[Gg]et_?" .. short_name .. "[CN][ou][um]") then
-									propdata.counts[short_name] = count_method
-									break
-								end
-							end
-						end
-						propdata.getters[short_name] = method
-					end
-				else
-					propdata.getters[short_name] = method
-				end
-			elseif (num_params == 1 or num_params == 2) and lower_name:find("set") == 1 then 
-				if num_params == 2 then 
-					if method:get_param_types()[1]:get_full_name():find("Int") then 
-						for count_name, count_method in pairs(propdata.counts) do 
-							if short_name:find(count_name) or count_name:find(short_name) or short_name:find(count_name:gsub("%_", "")) then 
-								propdata.counts[short_name] = propdata.counts[short_name] or count_method
-								if count_name:find("[Gg]et_?" .. short_name .. "[CN][ou][um]") then
-									propdata.counts[short_name] = count_method
-									break
-								end
-							end
-						end
-						propdata.setters[short_name] = method
-					end
-				else
-					propdata.setters[short_name] = method
-				end
-			end
-		end
-	end
-	
-	propdata.name_methods = get_name_methods(typedef, propdata)
-	propdata.item_type = REFramework_Helpers.evaluate_array_typedef_name(typedef, td_name)
-	if propdata.item_type and propdata.item_type:get_full_name() ~= "" then 
-		propdata.item_name_methods = get_name_methods( propdata.item_type, get_fields_and_methods(propdata.item_type), true)
-	end
-	metadata_methods[td_name] = propdata
-	
-	return propdata
-end
-
---Get the most appropriate name for a managed object element
-get_mgd_obj_name = function(m_obj, o_tbl, idx, only_relevant, skip_if_fail)
-	
-	--log.info("checking name for " .. logv(m_obj))
-	if type(m_obj)~="userdata" or not m_obj.get_type_definition or not REFramework_Helpers.is_valid_obj(m_obj) then return "" end
-	o_tbl = o_tbl or _data[m_obj] or (m_obj.get_type_definition and not skip_if_fail and create_REMgdObj(m_obj))
-	if not o_tbl then return m_obj:get_type_definition():get_full_name() end
-	
-	local typedef, name = (o_tbl.is_lua_type and (o_tbl.item_type or o_tbl.ret_type or o_tbl.type)) or (Utils.can_index(m_obj) and m_obj.get_type_definition and m_obj:get_type_definition()), nil
-	if not typedef then return tostring(m_obj) end
-	local td_name = typedef:get_full_name()
-	local indexable = Utils.can_index(m_obj)
-	
-	if typedef:is_a("System.Array") or td_name:match("<(.+)>") then --arrays
-		--name = (o_tbl.elements and can_index(o_tbl.elements[1]) and (o_tbl.elements[1]:get_type_definition():get_full_name().."["..#o_tbl.elements.."] -- "..get_mgd_obj_name(o_tbl.elements[1]))) or td_name:match("<(.+)>") 
-		name = td_name:match("<(.+)>")
-		name = name or (o_tbl.name_full and o_tbl.name_full:gsub("%[%]", "")) or td_name:gsub("%[%]", "")
-	elseif o_tbl.skeleton then
-		name = o_tbl.skeleton[idx]
-	elseif (type(m_obj) == "number") or (type(m_obj) == "boolean") or not Utils.can_index(m_obj) then
-		name = typedef:get_name()
-	elseif indexable and (m_obj.x or m_obj.__is_mat4) then
-		pcall(function()
-			name = (((o_tbl.is_vt or o_tbl.is_obj) and not o_tbl.is_lua_type) and (m_obj:get_type_definition():get_method("ToString()") and m_obj:call("ToString()")))
-		end)
-		name = name or typedef:get_name()
-	elseif typedef:is_a("via.Component") then 
-		name = td_name .. " (" .. get_GameObject(m_obj, true) .. ")"
-	elseif typedef:is_a("via.GameObject") then
-		try, name = pcall(sdk.call_object_func, m_obj, "get_Name")
-		name = try and name
-	elseif o_tbl.item_name_methods or o_tbl.name_methods then
-		local fields = o_tbl.fields or (o_tbl.item_type and metadata_methods[o_tbl.item_type:get_full_name()].fields)
-		local methods = o_tbl.methods or (o_tbl.item_type and metadata_methods[o_tbl.item_type:get_full_name()].methods)
-		for i, fm_name in ipairs(o_tbl.item_name_methods or o_tbl.name_methods) do
-			if fields and fields[fm_name] then
-				try, name = pcall(m_obj.get_field, m_obj, fm_name)
-			else
-				try, name = pcall(sdk.call_object_func, m_obj, fm_name)
-			end
-			name = try and (name ~= "") and name
-			if name ~= nil then 
-				if type(name) == "number" then
-					local ret_type = (fields and fields[fm_name] and fields[fm_name]:get_type()) or (methods and methods[fm_name] and methods[fm_name]:get_return_type()) 
-					if ret_type then
-						local enum, value_to_list_order, enum_names = get_enum(ret_type)
-						name = enum_names[ value_to_list_order[name] ]
-					else
-						ret_type = tostring(ret_type)
-					end
-				end
-				if type(name)=="userdata" and type(name.add_ref)=="function" then 
-					--add_resource_to_cache(name, nil, o_tbl) --enabling this adds way too many cached resources
-					if name:get_type_definition():is_a("System.Guid") then
-						name = static_funcs.guid_method:call(nil, m_obj)
-					else
-						name = name:call("ToString()"):match("^.+%[@?(.+)%]") --fix resources
-					end
-				end
-				if type(name)=="string" then
-					if name:find("%.pfb$") then 
-						add_pfb_to_cache(name)
-					end
-					break 
-				end
-				
-				--name = tostring(name)
-			end
-		end
-	end
-	
-	if not name and not only_relevant then 
-		if o_tbl.msg or typedef:is_a("System.Guid") then
-			name = o_tbl.msg or static_funcs.guid_method:call(nil, m_obj)
-			name = (name ~= "") and name:gsub("\n.*", "...") or name
-		end
-		if not name and m_obj:get_type_definition():get_method("ToString()") then
-			name = ({pcall(sdk.call_object_func, m_obj, "ToString()")}) ; name = name[1] and name[2] --m_obj:call("ToString()")--
-		end
-		name = name or m_obj:get_type_definition():get_name()
-	end
-	--log.info("Name is " .. tostring(name))
-	return name or ""
-end
-
 --GUI Control Object class
 local GUITree = {
 	
@@ -3348,7 +3369,7 @@ local GUITree = {
 		self.__index = self
 		o.obj = args.obj
 		o.name = o.obj:get_type_definition():get_full_name()
-		o.Name = get_mgd_obj_name(o.obj, nil, nil, nil, true)
+		o.Name = Reflection_Utils.get_mgd_obj_name(o.obj, nil, nil, nil, true)
 
 		o.children = args.children or o.children or self.child_lists[o.obj]
 		if not o.children then
@@ -3397,7 +3418,7 @@ local GUITree = {
 }
 
 --Class for containing fields and properties and their _data -------------------------------------------------------------------------------------------
-local VarData = {
+VarData = {
 	
 	new = function(self, args, o)
 		if not (args.get or args.field or args.value) then return end
@@ -3422,7 +3443,7 @@ local VarData = {
 		o.is_sfix = ((o.ret_type:is_a("via.Sfix4") and 4) or (o.ret_type:is_a("via.Sfix3") and 3) or (o.ret_type:is_a("via.Sfix2") and 2) or (o.ret_type:is_a("via.sfix") and 1)) or nil --o.full_name:find("%.[Ss]fix") and 
 		--o.ret_type = evaluate_array_typedef_name(o_tbl.type, o_tbl.name_full) or o.ret_type
 		rt_name = o.ret_type:get_full_name()
-		o.name_methods = (metadata_methods[rt_name] and metadata_methods[rt_name].name_methods) or get_name_methods(o.ret_type, get_fields_and_methods(o.ret_type))
+		o.name_methods = (metadata_methods[rt_name] and metadata_methods[rt_name].name_methods) or Reflection_Utils.get_name_methods(o.ret_type, Reflection_Utils.get_fields_and_methods(o.ret_type))
 		
 		local try, out, example
 		o.mysize = (o.get and (o.get:get_num_params() == 1)) and (((o.count and o.count:call(obj)) or (o_tbl.counts and o_tbl.counts.method and o_tbl.counts.method:call(obj))) or 0) or nil
@@ -3702,7 +3723,7 @@ local VarData = {
 				if should_update_cvalue and (self.mysize < 25) or Utils.random(3) then
 					if o_tbl.item_type and self.ret_type:get_full_name() == "System.Object" then --fix props with generic System.Object types if the parent MgdObj has the real ret type
 						self.ret_type = o_tbl.item_type
-						self.name_methods = get_name_methods(self.ret_type)
+						self.name_methods = Reflection_Utils.get_name_methods(self.ret_type)
 					end
 					self.value = {}
 					for j=0, (self.mysize and self.mysize-1) or 0 do 
@@ -3717,7 +3738,7 @@ local VarData = {
 					if not self.element_names then
 						self.element_names = {}
 						for i, item in ipairs(self.value) do
-							table.insert(self.element_names, get_mgd_obj_name(item, self, i))
+							table.insert(self.element_names, Reflection_Utils.get_mgd_obj_name(item, self, i))
 						end
 					end
 					if self.name == "_Item" then --populate SystemArrays
@@ -3738,303 +3759,294 @@ local VarData = {
 	end,
 }
 
---Class that supports indexable managed objects by constructing sub tables of all their important attributes and updating them ------------------------------
-local REMgdObj = {
+-- --Class that supports indexable managed objects by constructing sub tables of all their important attributes and updating them ------------------------------
+-- local REMgdObj = {
 	
-	__types = {},
+-- 	__types = {},
 	
-	__new = function(self, obj, used_props, o) 
+-- 	__new = function(self, obj, used_props, o) 
 		
-		if not obj or type(obj) == "number" or not Utils.can_index(obj) or not obj.get_type_definition then
-			print("REMgdObj Failed step 1")
-			return nil
-		end
+-- 		if not obj or type(obj) == "number" or not Utils.can_index(obj) or not obj.get_type_definition then
+-- 			print("REMgdObj Failed step 1")
+-- 			return nil
+-- 		end
 		
-		o = o or _data[obj] or {}
-		self.__index = self
+-- 		o = o or _data[obj] or {}
+-- 		self.__index = self
 		
-		local try, otype = pcall(obj.get_type_definition, obj)
-		local is_vt = (try and otype and otype:is_value_type()) or tostring(obj):find("::ValueType") or nil
+-- 		local try, otype = pcall(obj.get_type_definition, obj)
+-- 		local is_vt = (try and otype and otype:is_value_type()) or tostring(obj):find("::ValueType") or nil
 		
-		if not try or not otype or (not is_vt and not REFramework_Helpers.is_valid_obj(obj)) or not pcall(obj.call, obj, "get_Type") then 
-			print("REMgdObj Failed step 2")
-			return 
-		end
+-- 		if not try or not otype or (not is_vt and not REFramework_Helpers.is_valid_obj(obj)) or not pcall(obj.call, obj, "get_Type") then 
+-- 			print("REMgdObj Failed step 2")
+-- 			return 
+-- 		end
 		
-		local do_all_props = not used_props
-		o.is_vt = (is_vt and otype:get_method("Parse(System.String)") and "parse") or is_vt
-		o.obj = obj
-		o.type = otype
-		o.name = otype:get_name() or ""
-		o.name_full = otype:get_full_name() or ""
-		o.used_props = {}
-		o.skipped_props = not do_all_props or nil
-		o.is_arr = otype:is_a("System.Array") or nil
-		--print("REMgdObj Creating " .. o.name_full)
+-- 		local do_all_props = not used_props
+-- 		o.is_vt = (is_vt and otype:get_method("Parse(System.String)") and "parse") or is_vt
+-- 		o.obj = obj
+-- 		o.type = otype
+-- 		o.name = otype:get_name() or ""
+-- 		o.name_full = otype:get_full_name() or ""
+-- 		o.used_props = {}
+-- 		o.skipped_props = not do_all_props or nil
+-- 		o.is_arr = otype:is_a("System.Array") or nil
+-- 		--print("REMgdObj Creating " .. o.name_full)
 		
-		if not do_all_props then 
-			for i, name in ipairs(used_props) do 
-				o.used_props[name] = i
-			end
-		end
+-- 		if not do_all_props then 
+-- 			for i, name in ipairs(used_props) do 
+-- 				o.used_props[name] = i
+-- 			end
+-- 		end
 		
-		o.components = (otype:is_a("via.GameObject") and lua_get_system_array(obj:call("get_Components"), true)) or nil
-		if otype:is_a("via.Component") or o.components then 
-			o.is_component = (otype:is_a("via.Transform") and 2) or (not o.components) or nil
-			o.gameobj = o.is_component and get_GameObject(obj) or (not o.is_component and obj) or nil
-			if o.gameobj then
-				o.gameobj_name = o.gameobj:call("get_Name")
-				o.xform = o.gameobj:call("get_Transform")
-				o.folder = o.gameobj:call("get_Folder")
-				if o.is_component  == 2 then
-					o.parent = o.xform:call("get_Parent")
-					o.children = lua_get_enumerator(o.xform:call("get_Children"), o)
-				end
-				if o.components then
-					for i, component in ipairs(o.components) do
-						o[component:get_type_definition():get_name()] = component
-					end
-				end
+-- 		o.components = (otype:is_a("via.GameObject") and lua_get_system_array(obj:call("get_Components"), true)) or nil
+-- 		if otype:is_a("via.Component") or o.components then 
+-- 			o.is_component = (otype:is_a("via.Transform") and 2) or (not o.components) or nil
+-- 			o.gameobj = o.is_component and get_GameObject(obj) or (not o.is_component and obj) or nil
+-- 			if o.gameobj then
+-- 				o.gameobj_name = o.gameobj:call("get_Name")
+-- 				o.xform = o.gameobj:call("get_Transform")
+-- 				o.folder = o.gameobj:call("get_Folder")
+-- 				if o.is_component  == 2 then
+-- 					o.parent = o.xform:call("get_Parent")
+-- 					o.children = lua_get_enumerator(o.xform:call("get_Children"), o)
+-- 				end
+-- 				if o.components then
+-- 					for i, component in ipairs(o.components) do
+-- 						o[component:get_type_definition():get_name()] = component
+-- 					end
+-- 				end
 
-				o.key_hash = hashing_method(get_gameobj_path(o.gameobj) .. o.name_full)
-			end
-		elseif otype:is_a("via.Folder") then
-			o.parent = obj:call("get_Parent")
-			o.children = lua_get_enumerator(obj:call("get_Children"), o)
-			o.child_folders = lua_get_enumerator(obj:call("get_Folders"), o) or {}
-			o.scn_path = REFramework_Helpers.read_unicode_string(obj:get_address()+statics.scn_path_offs, true)
-		elseif otype:is_a("via.gui.Control") then
-			o.gui = GUITree:new{obj=obj}
-		end
+-- 				o.key_hash = hashing_method(get_gameobj_path(o.gameobj) .. o.name_full)
+-- 			end
+-- 		elseif otype:is_a("via.Folder") then
+-- 			o.parent = obj:call("get_Parent")
+-- 			o.children = lua_get_enumerator(obj:call("get_Children"), o)
+-- 			o.child_folders = lua_get_enumerator(obj:call("get_Folders"), o) or {}
+-- 			o.scn_path = REFramework_Helpers.read_unicode_string(obj:get_address()+statics.scn_path_offs, true)
+-- 		elseif otype:is_a("via.gui.Control") then
+-- 			o.gui = GUITree:new{obj=obj}
+-- 		end
 		
-		local propdata = metadata_methods[o.name_full] or get_fields_and_methods(otype)
-		o.methods = propdata.methods
-		o.fields = next(propdata.fields) and propdata.fields
+-- 		local propdata = metadata_methods[o.name_full] or Reflection_Utils.get_fields_and_methods(otype)
+-- 		o.methods = propdata.methods
+-- 		o.fields = next(propdata.fields) and propdata.fields
 		
-		if o.fields then
-			o.field_data = {}
-			--for name, field in pairs(o.fields) do
-			for i, field_name in ipairs(propdata.field_names) do 
-				if do_all_props or o.used_props[field_name] then
-					local field = propdata.fields[field_name]
-					o.field_data[field_name] = VarData:new{
-						name=field_name,
-						o_tbl=o,
-						field=field, 
-						ret_type=field:get_type(),
-						index=i,
-					}
-					o.used_props[field_name] = Utils.get_table_size(propdata.field_names)
-				end
-			end
-		end
+-- 		if o.fields then
+-- 			o.field_data = {}
+-- 			--for name, field in pairs(o.fields) do
+-- 			for i, field_name in ipairs(propdata.field_names) do 
+-- 				if do_all_props or o.used_props[field_name] then
+-- 					local field = propdata.fields[field_name]
+-- 					o.field_data[field_name] = VarData:new{
+-- 						name=field_name,
+-- 						o_tbl=o,
+-- 						field=field, 
+-- 						ret_type=field:get_type(),
+-- 						index=i,
+-- 					}
+-- 					o.used_props[field_name] = Utils.get_table_size(propdata.field_names)
+-- 				end
+-- 			end
+-- 		end
 		
-		--for name, field in pairs(propdata.fields) do
-		--	o[name:match("%<(.+)%>") or name] = field:get_data(obj)
-		--end
+-- 		--for name, field in pairs(propdata.fields) do
+-- 		--	o[name:match("%<(.+)%>") or name] = field:get_data(obj)
+-- 		--end
 		
-		--for name, method in pairs(propdata.functions) do
-		--	o[name] = method
-		--end
+-- 		--for name, method in pairs(propdata.functions) do
+-- 		--	o[name] = method
+-- 		--end
 		
-		if next(propdata.counts) then 
-			local counts = { counts=propdata.counts, counts_names={}, method=(SettingsCache.generic_count_methods[o.name_full] and otype:get_method(SettingsCache.generic_count_methods[o.name_full])) }
-			local count_method_name = counts.method and counts.method:get_name():sub(4,-1):gsub("Count", "")
-			for method_name, method in orderedPairs(propdata.counts) do 
-				table.insert(counts.counts_names, method_name)
-				counts.idx = (method_name == count_method_name) and #counts.counts_names
-			end
-			counts.idx = propdata.counts_idx or counts.idx or 1 
-			o.counts = counts
-		end
+-- 		if next(propdata.counts) then 
+-- 			local counts = { counts=propdata.counts, counts_names={}, method=(SettingsCache.generic_count_methods[o.name_full] and otype:get_method(SettingsCache.generic_count_methods[o.name_full])) }
+-- 			local count_method_name = counts.method and counts.method:get_name():sub(4,-1):gsub("Count", "")
+-- 			for method_name, method in orderedPairs(propdata.counts) do 
+-- 				table.insert(counts.counts_names, method_name)
+-- 				counts.idx = (method_name == count_method_name) and #counts.counts_names
+-- 			end
+-- 			counts.idx = propdata.counts_idx or counts.idx or 1 
+-- 			o.counts = counts
+-- 		end
 		
-		o.name_methods = propdata.name_methods
-		o.item_type = propdata.item_type
-		o.name_methods = propdata.name_methods
-		o.Name = get_mgd_obj_name(obj, o) or ""
+-- 		o.name_methods = propdata.name_methods
+-- 		o.item_type = propdata.item_type
+-- 		o.name_methods = propdata.name_methods
+-- 		o.Name = Reflection_Utils.get_mgd_obj_name(obj, o) or ""
 		
-		--initial properties setup:
-		if next(propdata.getters) then
-			o.props = {}
-			o.props_named = {}
-			local skeleton
-			for i, method_name in ipairs(propdata.method_names) do
-				if do_all_props or o.used_props[method_name] then
-					if (method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1) and not method_name:find("__") then --(method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1)
-						if SettingsCache.show_all_fields or not (propdata.clean_field_names[method_name:sub(4, -1):gsub("_", ""):lower()] or propdata.clean_field_names[method_name:sub(4, -1):lower()]) then --is accessed already by a field
-							local full_name = propdata.method_full_names[method_name]
-							local full_name_method = o.type:get_method(full_name)
-							method_name = method_name:sub(4, -1) 
-							if full_name_method and propdata.getters[method_name] and not misc_vars.skip_props[method_name] and (not SettingsCache.exception_methods[o.name_full] or not SettingsCache.exception_methods[o.name_full][method_name]) then --
-								local method = propdata.getters[method_name]
-								local prop = VarData:new{
-									o_tbl=o,
-									name=method_name, 
-									full_name=full_name, 
-									get=full_name_method, 
-									set=propdata.setters[method_name], 
-									count=propdata.counts[method_name], 
-									ret_type=method:get_return_type(),
-									is_count = not not method_name:find("[CN][ou][um][n]?[t]?$") or nil,
-								}
-								table.insert(o.props, prop)
-								o.props_named[prop.name] = prop
-								o.used_props[method_name] = #o.props
-								--if o[method_name] and not bad_obj then
-									--re.msg_safe("Prop " .. prop.name .. " name conflict in console object 'bad_obj'!", 1241545)
-								--	bad_obj = obj
-								--else
-								--	o[method_name] = o[method_name] or prop
-								--end
-							end
-						end
-					end
-				end
-			end
-		end
+-- 		--initial properties setup:
+-- 		if next(propdata.getters) then
+-- 			o.props = {}
+-- 			o.props_named = {}
+-- 			local skeleton
+-- 			for i, method_name in ipairs(propdata.method_names) do
+-- 				if do_all_props or o.used_props[method_name] then
+-- 					if (method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1) and not method_name:find("__") then --(method_name:find("[Gg]et") == 1 or method_name:find("[Hh]as") == 1)
+-- 						if SettingsCache.show_all_fields or not (propdata.clean_field_names[method_name:sub(4, -1):gsub("_", ""):lower()] or propdata.clean_field_names[method_name:sub(4, -1):lower()]) then --is accessed already by a field
+-- 							local full_name = propdata.method_full_names[method_name]
+-- 							local full_name_method = o.type:get_method(full_name)
+-- 							method_name = method_name:sub(4, -1) 
+-- 							if full_name_method and propdata.getters[method_name] and not misc_vars.skip_props[method_name] and (not SettingsCache.exception_methods[o.name_full] or not SettingsCache.exception_methods[o.name_full][method_name]) then --
+-- 								local method = propdata.getters[method_name]
+-- 								local prop = VarData:new{
+-- 									o_tbl=o,
+-- 									name=method_name, 
+-- 									full_name=full_name, 
+-- 									get=full_name_method, 
+-- 									set=propdata.setters[method_name], 
+-- 									count=propdata.counts[method_name], 
+-- 									ret_type=method:get_return_type(),
+-- 									is_count = not not method_name:find("[CN][ou][um][n]?[t]?$") or nil,
+-- 								}
+-- 								table.insert(o.props, prop)
+-- 								o.props_named[prop.name] = prop
+-- 								o.used_props[method_name] = #o.props
+-- 								--if o[method_name] and not bad_obj then
+-- 									--re.msg_safe("Prop " .. prop.name .. " name conflict in console object 'bad_obj'!", 1241545)
+-- 								--	bad_obj = obj
+-- 								--else
+-- 								--	o[method_name] = o[method_name] or prop
+-- 								--end
+-- 							end
+-- 						end
+-- 					end
+-- 				end
+-- 			end
+-- 		end
 		
-		o.do_auto_expand = ((o.fields or o.props) and not o.item_type and not o.is_arr and not o.dict and o.name~="Transform" and not o.name:find("^Wrapped")) or nil --and not o.is_vt --(o.is_arr and not o.elements[1])
-		o.key_hash = o.key_hash or hashing_method(o.name_full)
-		o.propdata = propdata
-		self.obj = obj
-		_data[obj] = o
-		metadata_methods[o.name_full] = propdata
+-- 		o.do_auto_expand = ((o.fields or o.props) and not o.item_type and not o.is_arr and not o.dict and o.name~="Transform" and not o.name:find("^Wrapped")) or nil --and not o.is_vt --(o.is_arr and not o.elements[1])
+-- 		o.key_hash = o.key_hash or hashing_method(o.name_full)
+-- 		o.propdata = propdata
+-- 		self.obj = obj
+-- 		_data[obj] = o
+-- 		metadata_methods[o.name_full] = propdata
 		
-		return setmetatable(o, self)
-	end,
+-- 		return setmetatable(o, self)
+-- 	end,
 	
 	
-	__set_owner = function(self, owned_obj)
-		local cv_tbl = _data[owned_obj] and _data[owned_obj]._
-		if cv_tbl and not cv_tbl.xform and not cv_tbl.child_folders and (cv_tbl ~= _data[self.obj]) then
-			cv_tbl.owner = self.obj --((self.get_elements or _data[self.obj].methods.MoveNext) and _data[self.obj].owner) or 
-		end
-	end,
+-- 	__set_owner = function(self, owned_obj)
+-- 		local cv_tbl = _data[owned_obj] and _data[owned_obj]._
+-- 		if cv_tbl and not cv_tbl.xform and not cv_tbl.child_folders and (cv_tbl ~= _data[self.obj]) then
+-- 			cv_tbl.owner = self.obj --((self.get_elements or _data[self.obj].methods.MoveNext) and _data[self.obj].owner) or 
+-- 		end
+-- 	end,
 	
-	__update = function(self, is_known_valid, forced_update)
+-- 	__update = function(self, is_known_valid, forced_update)
 		
-		if is_known_valid or _data[self.obj].is_vt or sdk.is_managed_object(self.obj) then
+-- 		if is_known_valid or _data[self.obj].is_vt or sdk.is_managed_object(self.obj) then
 		
-			local o_tbl = _data[self.obj]
-			if not o_tbl then return end
+-- 			local o_tbl = _data[self.obj]
+-- 			if not o_tbl then return end
 			
-			if o_tbl.is_open and o_tbl.skipped_props then --activate all props
-				_data[self.obj] = create_REMgdObj(o_tbl.obj, o_tbl.keep_alive)
-				return
-			end
+-- 			if o_tbl.is_open and o_tbl.skipped_props then --activate all props
+-- 				_data[self.obj] = create_REMgdObj(o_tbl.obj, o_tbl.keep_alive)
+-- 				return
+-- 			end
 			
-			o_tbl.pos = nil
-			local propdata = o_tbl.propdata
-			local obj = o_tbl.obj
-			forced_update = forced_update or o_tbl.keep_updating
+-- 			o_tbl.pos = nil
+-- 			local propdata = o_tbl.propdata
+-- 			local obj = o_tbl.obj
+-- 			forced_update = forced_update or o_tbl.keep_updating
 			
-			--Update owner
-			if o_tbl.xform then 
-				o_tbl.go = touched_gameobjects[o_tbl.xform] or held_transforms[o_tbl.xform] or o_tbl.go
-			elseif o_tbl.owner and _data[o_tbl.owner] then 
-				o_tbl.xform = _data[o_tbl.owner].xform
-				o_tbl.gameobj = o_tbl.gameobj or _data[o_tbl.owner].gameobj
-				o_tbl.gameobj_name = o_tbl.gameobj_name or _data[o_tbl.owner].gameobj_name
-				if not o_tbl.folder and o_tbl.gameobj then 
-					o_tbl.key_hash = hashing_method((get_gameobj_path(o_tbl.gameobj) or "") .. o_tbl.name_full)
-				end
-				o_tbl.folder = o_tbl.folder or _data[o_tbl.owner].folder
-			end
+-- 			--Update owner
+-- 			if o_tbl.xform then 
+-- 				o_tbl.go = touched_gameobjects[o_tbl.xform] or held_transforms[o_tbl.xform] or o_tbl.go
+-- 			elseif o_tbl.owner and _data[o_tbl.owner] then 
+-- 				o_tbl.xform = _data[o_tbl.owner].xform
+-- 				o_tbl.gameobj = o_tbl.gameobj or _data[o_tbl.owner].gameobj
+-- 				o_tbl.gameobj_name = o_tbl.gameobj_name or _data[o_tbl.owner].gameobj_name
+-- 				if not o_tbl.folder and o_tbl.gameobj then 
+-- 					o_tbl.key_hash = hashing_method((get_gameobj_path(o_tbl.gameobj) or "") .. o_tbl.name_full)
+-- 				end
+-- 				o_tbl.folder = o_tbl.folder or _data[o_tbl.owner].folder
+-- 			end
 			
-			--Update Enumerators
-			if o_tbl.methods and o_tbl.methods.MoveNext and (o_tbl.elements == nil) then --populate enumerators. This is a dangerous operation so it updates as rarely as possible
-				o_tbl.elements, o_tbl.element_names = lua_get_enumerator(obj, o_tbl)
-				o_tbl.mysize = #o_tbl.elements
-			end
+-- 			--Update Enumerators
+-- 			if o_tbl.methods and o_tbl.methods.MoveNext and (o_tbl.elements == nil) then --populate enumerators. This is a dangerous operation so it updates as rarely as possible
+-- 				o_tbl.elements, o_tbl.element_names = lua_get_enumerator(obj, o_tbl)
+-- 				o_tbl.mysize = #o_tbl.elements
+-- 			end
 			
-			--Update fields
-			if o_tbl.fields then
-				for field_name, field in pairs(o_tbl.fields) do --update fields every frame, since they are simple
-					local fdata = o_tbl.field_data[field_name]
-					if fdata.new_self then
-						fdata = fdata.new_self
-						o_tbl.field_data[field_name] = fdata
-					end
-					local fname = (field_name:match("%<(.+)%>") or field_name)
-					fdata:update_field(o_tbl, forced_update)
-				end
-			end
+-- 			--Update fields
+-- 			if o_tbl.fields then
+-- 				for field_name, field in pairs(o_tbl.fields) do --update fields every frame, since they are simple
+-- 					local fdata = o_tbl.field_data[field_name]
+-- 					if fdata.new_self then
+-- 						fdata = fdata.new_self
+-- 						o_tbl.field_data[field_name] = fdata
+-- 					end
+-- 					local fname = (field_name:match("%<(.+)%>") or field_name)
+-- 					fdata:update_field(o_tbl, forced_update)
+-- 				end
+-- 			end
 			
-			--Update loose array vardata:
-			if o_tbl.item_data and not o_tbl.is_arr then
-				for prop_name, tbl in pairs(o_tbl.item_data) do
-					for k, vardata in ipairs(tbl) do
-						if vardata.new_self then tbl[k] = vardata.new_self end
-						--vardata:update_prop(o_tbl, k-1)
-					end
-				end
-			end
+-- 			--Update loose array vardata:
+-- 			if o_tbl.item_data and not o_tbl.is_arr then
+-- 				for prop_name, tbl in pairs(o_tbl.item_data) do
+-- 					for k, vardata in ipairs(tbl) do
+-- 						if vardata.new_self then tbl[k] = vardata.new_self end
+-- 						--vardata:update_prop(o_tbl, k-1)
+-- 					end
+-- 				end
+-- 			end
 			
-			--Update counts
-			if o_tbl.counts then
-				o_tbl.counts.method = o_tbl.counts.counts[ o_tbl.counts.counts_names[o_tbl.counts.idx] ] or o_tbl.counts.method
-				SettingsCache.generic_count_methods[o_tbl.name_full] = (o_tbl.counts.method and o_tbl.counts.method:get_name()) or SettingsCache.generic_count_methods[o_tbl.name_full]
-			end
+-- 			--Update counts
+-- 			if o_tbl.counts then
+-- 				o_tbl.counts.method = o_tbl.counts.counts[ o_tbl.counts.counts_names[o_tbl.counts.idx] ] or o_tbl.counts.method
+-- 				SettingsCache.generic_count_methods[o_tbl.name_full] = (o_tbl.counts.method and o_tbl.counts.method:get_name()) or SettingsCache.generic_count_methods[o_tbl.name_full]
+-- 			end
 			
-			--Update properties
-			if o_tbl.props then 
-				for i, prop in ipairs(o_tbl.props) do 
-					if prop.new_self then
-						prop = prop.new_self
-						o_tbl.props[i] = prop
-						o_tbl.props_named[prop.name] = prop
-					end
-					prop:update_prop(o_tbl, i, forced_update)
-				end
-			end
+-- 			--Update properties
+-- 			if o_tbl.props then 
+-- 				for i, prop in ipairs(o_tbl.props) do 
+-- 					if prop.new_self then
+-- 						prop = prop.new_self
+-- 						o_tbl.props[i] = prop
+-- 						o_tbl.props_named[prop.name] = prop
+-- 					end
+-- 					prop:update_prop(o_tbl, i, forced_update)
+-- 				end
+-- 			end
 			
-			--Fix element names (these may randomly crash the game if collected on-frame, so sometimes it is delayed)
-			if o_tbl.elements then 
-				if (o_tbl.elements[1] ~= nil) and (not o_tbl.element_names or not o_tbl.element_names[1]) and (not o_tbl.delayed_names or (uptime-o_tbl.delayed_names > 0.66)) then
-					o_tbl.element_names = {}
-					o_tbl.item_data = {}
-					o_tbl.delayed_names = nil
-					for i, element in ipairs(o_tbl.elements) do 
-						table.insert(o_tbl.element_names, get_mgd_obj_name(element, o_tbl, i))
-					end
-				end
-			end
+-- 			--Fix element names (these may randomly crash the game if collected on-frame, so sometimes it is delayed)
+-- 			if o_tbl.elements then 
+-- 				if (o_tbl.elements[1] ~= nil) and (not o_tbl.element_names or not o_tbl.element_names[1]) and (not o_tbl.delayed_names or (uptime-o_tbl.delayed_names > 0.66)) then
+-- 					o_tbl.element_names = {}
+-- 					o_tbl.item_data = {}
+-- 					o_tbl.delayed_names = nil
+-- 					for i, element in ipairs(o_tbl.elements) do 
+-- 						table.insert(o_tbl.element_names, Reflection_Utils.get_mgd_obj_name(element, o_tbl, i))
+-- 					end
+-- 				end
+-- 			end
 			
-			--Specialty
-			if o_tbl.name == "Chain" then
-				if forced_update or not o_tbl.cgroups  then 
-					o_tbl.cgroups = {}
-					local all_settings = {}
-					for i = 0, obj:call("getGroupCount") - 1 do 
-						table.insert(o_tbl.cgroups, ChainGroup:new { group=obj:call("getGroup", i), xform=o_tbl.xform, all_settings=all_settings } )
-					end
-				end
-				if o_tbl.show_all_joints and o_tbl.cgroups and o_tbl.cgroups[1] then 
-					for i, group in ipairs(o_tbl.cgroups) do
-						group:update(true)
-					end
-					o_tbl.last_opened = uptime --prevents deletion
-				end
-			end
-		else
-			_data[self.obj].invalid = true
-		end
-	end,
-}
+-- 			--Specialty
+-- 			if o_tbl.name == "Chain" then
+-- 				if forced_update or not o_tbl.cgroups  then 
+-- 					o_tbl.cgroups = {}
+-- 					local all_settings = {}
+-- 					for i = 0, obj:call("getGroupCount") - 1 do 
+-- 						table.insert(o_tbl.cgroups, ChainGroup:new { group=obj:call("getGroup", i), xform=o_tbl.xform, all_settings=all_settings } )
+-- 					end
+-- 				end
+-- 				if o_tbl.show_all_joints and o_tbl.cgroups and o_tbl.cgroups[1] then 
+-- 					for i, group in ipairs(o_tbl.cgroups) do
+-- 						group:update(true)
+-- 					end
+-- 					o_tbl.last_opened = uptime --prevents deletion
+-- 				end
+-- 			end
+-- 		else
+-- 			_data[self.obj].invalid = true
+-- 		end
+-- 	end,
+-- }
 
-
---Function to make an REMgdObj object
-create_REMgdObj = function(managed_object, keep_alive, used_props)
-	_data[managed_object] = _data[managed_object]  or REMgdObj:__new(managed_object, used_props)
-	if _data[managed_object] then
-		_data[managed_object].keep_alive = keep_alive
-		return _data[managed_object]
-	end
-end
 
 --Add BehaviorTrees to REMgdObj:
 pcall(function()
-	REMgdObj_objects.BHVT = findc("via.motion.MotionFsm2")[1]
+	REMgdObj_objects.BHVT = ObjectSearchers.findc("via.motion.MotionFsm2")[1]
 	REMgdObj_objects.BHVT = REMgdObj_objects.BHVT and REMgdObj_objects.BHVT:call("getLayer", 0)
 end)
 
@@ -4491,11 +4503,11 @@ local function read_field(parent_managed_object, field, prop, name, return_type,
 		if not count and not element_idx then
 			local return_type = value.get_type_definition and value:get_type_definition() or return_type
 			if return_type then
-				field_pd = metadata_methods[return_type:get_full_name()] or get_fields_and_methods(return_type)
+				field_pd = metadata_methods[return_type:get_full_name()] or Reflection_Utils.get_fields_and_methods(return_type)
 				
-				Name = not element_idx and ((not do_update and vd.Name) or get_mgd_obj_name(value, {
+				Name = not element_idx and ((not do_update and vd.Name) or Reflection_Utils.get_mgd_obj_name(value, {
 					ret_type=return_type, 
-					name_methods=field_pd.name_methods or get_name_methods(return_type),
+					name_methods=field_pd.name_methods or Reflection_Utils.get_name_methods(return_type),
 					fields=field_pd.fields,
 				}, nil, false) or "") or ""
 				
@@ -4940,7 +4952,7 @@ local function show_managed_objects_table(parent_managed_object, tbl, prop, key_
 				imgui.same_line()
 				--if imgui.tree_node_str_id(key_name .. element_name .. idx, disp_name ) then
 				arr_tbl.element_Names = arr_tbl.element_Names or {}
-				arr_tbl.element_Names[idx] = arr_tbl.element_Names[idx] or get_mgd_obj_name(element)
+				arr_tbl.element_Names[idx] = arr_tbl.element_Names[idx] or Reflection_Utils.get_mgd_obj_name(element)
 				if imgui.tree_node_colored(idx, disp_name, arr_tbl.element_Names[idx] or "") then
 					tbl_changed, element = imgui.managed_object_control_panel(element, key_name .. element_name .. idx, element_name)
 					imgui.tree_pop()
@@ -6213,19 +6225,19 @@ local function show_collection()
 			local must_have = {}
 			cd.setup(true)
 			if cd.must_have.checked then
-				for i, result in ipairs(find(cd.must_have.Component)) do 
+				for i, result in ipairs(ObjectSearchers.find(cd.must_have.Component)) do 
 					must_have[result] = result
 				end
 			end
 			new_collection = Utils.merge_tables({}, Collection)
-			merged = cd.search_enemies and search("^[ep][ml]%d%d%d%d" .. (isDMC and "_?%d?%d?"  or "$"), cd.case_sensitive, true) or {}
+			merged = cd.search_enemies and ObjectSearchers.search("^[ep][ml]%d%d%d%d" .. (isDMC and "_?%d?%d?"  or "$"), cd.case_sensitive, true) or {}
 			if isRE8 and cd.search_enemies then 
-				merged = Utils.merge_tables(merged,  search("^ch%d%d_%d%d%d%d$", cd.case_sensitive, true) or {})
+				merged = Utils.merge_tables(merged,  ObjectSearchers.search("^ch%d%d_%d%d%d%d$", cd.case_sensitive, true) or {})
 			end
 			if cd.enable_component_search then
 				for i, component_name in ipairs(cd.search_for) do
 					if sdk.find_type_definition(component_name) then
-						merged = Utils.merge_tables(merged, find(component_name, 1))
+						merged = Utils.merge_tables(merged, ObjectSearchers.find(component_name, 1))
 					end
 				end
 			else
@@ -6235,7 +6247,7 @@ local function show_collection()
 			if cd.enable_include_search then 
 				for j, included_name in ipairs(cd.included) do 
 					if included_name ~= "[New]" then
-						merged = Utils.merge_tables({}, search(included_name, cd.case_sensitive, true))
+						merged = Utils.merge_tables({}, ObjectSearchers.search(included_name, cd.case_sensitive, true))
 					end
 				end
 			end
@@ -6879,7 +6891,7 @@ local BHVTCoreHandle = {
 		o.obj = args.obj or o.obj
 		o.tree = args.tree or (o.obj and o.obj.get_tree_object and o.obj:get_tree_object()) or o.tree
 		o.index = args.index or o.index
-		o.name = o.obj and get_mgd_obj_name(o.obj)
+		o.name = o.obj and Reflection_Utils.get_mgd_obj_name(o.obj)
 		if BHVT.nodes_failed or not o.tree or not o.obj then return o end -- 
 		o.nodes = {}
 		o.nodes_indexed = {}
@@ -9101,7 +9113,7 @@ re.on_frame(function()
 			imgui.begin_window("RE7 Cutscene Skipper", nil, 0)
 				if imgui.button("Skip Cutscene") or is_skipping_cs then 
 					stop_wwise = stop_wwise or function()
-						for i, wwise in ipairs(findc("via.wwise.WwiseContainer")) do 
+						for i, wwise in ipairs(ObjectSearchers.findc("via.wwise.WwiseContainer")) do 
 							wwise:call("stopAll()")
 							--for c=0, wwise:call("getContainableAssetCount")-1 do
 								--local asset = wwise:call("getContainableAsset", c)
@@ -9389,139 +9401,138 @@ end)
 
 --These functions available by require() ------------------------------------------------------------------------------------------
 EMV = {
-	GameObject = GameObject,
-	REMgdObj = REMgdObj,
-	ChainGroup = ChainGroup,
-	ChainNode = ChainNode,
-	Material = Material,
-	BHVT = BHVT,
-	Hotkey = Hotkey,
-	ImguiTable = ImguiTable,
-	GUITree = GUITree,
-	default_SettingsCache = default_SettingsCache,
-	static_objs = static_objs,
-	static_funcs = static_funcs,
-	statics = statics,
-	cog_names = cog_names,
-	bool_to_number = bool_to_number,
-	number_to_bool = number_to_bool,
-	random_range = Utils.random_range,
-	random = Utils.random,
-	create_REMgdObj = create_REMgdObj,
-	get_valid = REFramework_Helpers.get_valid,
-	is_only_my_ref = REFramework_Helpers.is_only_my_ref,
-	is_valid_obj = REFramework_Helpers.is_valid_obj,
-	orderedNext = orderedNext,
-	orderedPairs = orderedPairs,
-	run_command = run_command,
-	merge_indexed_tables = Utils.merge_indexed_tables,
-	merge_tables = Utils.merge_tables,
-	deep_copy = Utils.deep_copy,
-	insert_if_unique = Utils.insert_if_unique,
-	can_index = Utils.can_index,
-	jsonify_table = jsonify_table,
-	mouse_state = mouse_state,
-	kb_state = kb_state,
-	get_mouse_device = get_mouse_device,
-	get_kb_device = get_kb_device,
-	split = Utils.greedy_split,
-	Split = Utils.lazy_split,
-	vector_to_table = Utils.vector_to_table,
-	magnitude = Utils.magnitude,
-	mat4_scale = Utils.mat4_scale,
-	write_vec34 = REFramework_Helpers.write_vec34,
-	read_vec34 = REFramework_Helpers.read_vec34,
-	read_mat4 = REFramework_Helpers.read_mat4,
-	write_mat4 = REFramework_Helpers.write_mat4,
-	trs_to_mat4 = Utils.trs_to_mat4,
-	mat4_to_trs = Utils.mat4_to_trs,
-	get_trs = REFramework_Helpers.get_trs,
-	create_resource = create_resource,
-	get_folders = get_folders,
-	get_table_size = Utils.get_table_size,
-	isArray = Utils.isArray,
-	arrayRemove = arrayRemove,
-	deferred_call = deferred_call,
-	get_children = get_children,
-	is_child_of = is_child_of,
-	get_player = get_player,
-	constructor = constructor,
-	is_lua_type = REFramework_Helpers.is_lua_type,
-	delete_component = delete_component,
-	lua_find_component = lua_find_component,
-	lua_get_components = lua_get_components,
-	lua_get_enumerator = lua_get_enumerator,
-	lua_get_system_array = lua_get_system_array,
-	reverse_table = Utils.reverse_table,
-	clamp = Utils.clamp,
-	smoothstep = Utils.smoothstep,
-	generate_statics = generate_statics,
-	get_enum = get_enum,
-	value_to_obj = REFramework_Helpers.value_to_obj,
-	to_obj = REFramework_Helpers.to_obj,
-	log_value = Display_Helpers.log_value,
-	logv = Display_Helpers.logv,
-	log_transform = Display_Helpers.log_transform,
-	log_bytes = Display_Helpers.log_bytes,
-	read_bytes = Display_Helpers.read_bytes,
-	log_method = Display_Helpers.log_method,
-	log_field = Display_Helpers.log_field,
-	log_typedef = Display_Helpers.log_typedef,
-	vector_to_string = Display_Helpers.vector_to_string,
-	mat4_to_string = Display_Helpers.mat4_to_string,
-	hashing_method = hashing_method,
-	get_gameobj_path = get_gameobj_path,
-	draw_world_pos = Display_Helpers.draw_world_pos,
-	offer_show_world_pos = Display_Helpers.offer_show_world_pos,
-	show_imgui_vec4 = Display_Helpers.show_imgui_vec4,
-	imgui_chain_settings = imgui_chain_settings,
-	read_field = read_field,
-	show_field = show_field,
-	show_prop = show_prop,
-	editable_table_field = editable_table_field,
-	imgui_anim_object_viewer = imgui_anim_object_viewer,
-	--imgui_behaviortrees = imgui_behaviortrees,
-	imgui_saved_materials_menu = imgui_saved_materials_menu,
-	draw_material_variable = draw_material_variable,
-	show_imgui_mats = show_imgui_mats,
-	is_unique_name = is_unique_name,
-	contains_xform = contains_xform,
-	look_at = look_at,
-	offer_grab = offer_grab,
-	add_resource_to_cache = add_resource_to_cache,
-	add_pfb_to_cache = add_pfb_to_cache,
-	search = search,
-	sort = sort,
-	sort_components = sort_components,
-	closest = closest,
-	calln = calln,
-	find = find,
-	findc = findc,
-	findtdm = findtdm,
-	find_index = Utils.find_index,
-	qsort = Utils.qsort,
-	read_imgui_pairs_table = read_imgui_pairs_table,
-	read_imgui_element = read_imgui_element,
-	get_first_gameobj = get_first_gameobj,
-	get_all_folders = get_all_folders,
-	get_transforms = get_transforms,
-	searchf = searchf,
-	check_key_released = check_key_released,
-	get_anim_object = get_anim_object,
-	dump_settings = dump_settings,
-	clear_object = clear_object,
-	make_obj = make_obj,
-	create_gameobj = create_gameobj,
-	obj_to_json = obj_to_json,
-	get_body_part = get_body_part,
-	is_obj_or_vt = REFramework_Helpers.is_obj_or_vt,
-	get_GameObject = get_GameObject,
-	get_fields_and_methods = get_fields_and_methods,
-	nextValue = Utils.nextValue,
-	get_args = get_args,
-	read_unicode_string = REFramework_Helpers.read_unicode_string,
-	edit_obj = edit_obj,
-	edit_objs = edit_objs,
+    GameObject = GameObject,
+    REMgdObj = REMgdObj,
+    ChainGroup = ChainGroup,
+    ChainNode = ChainNode,
+    Material = Material,
+    BHVT = BHVT,
+    Hotkey = Hotkey,
+    ImguiTable = ImguiTable,
+    GUITree = GUITree,
+    default_SettingsCache = default_SettingsCache,
+    static_objs = static_objs,
+    static_funcs = static_funcs,
+    statics = statics,
+    cog_names = cog_names,
+    bool_to_number = bool_to_number,
+    number_to_bool = number_to_bool,
+    random_range = Utils.random_range,
+    random = Utils.random,
+    create_REMgdObj = create_REMgdObj,
+    get_valid = REFramework_Helpers.get_valid,
+    is_only_my_ref = REFramework_Helpers.is_only_my_ref,
+    is_valid_obj = REFramework_Helpers.is_valid_obj,
+    orderedNext = orderedNext,
+    orderedPairs = orderedPairs,
+    run_command = run_command,
+    merge_indexed_tables = Utils.merge_indexed_tables,
+    merge_tables = Utils.merge_tables,
+    deep_copy = Utils.deep_copy,
+    insert_if_unique = Utils.insert_if_unique,
+    can_index = Utils.can_index,
+    jsonify_table = jsonify_table,
+    mouse_state = mouse_state,
+    kb_state = kb_state,
+    get_mouse_device = get_mouse_device,
+    get_kb_device = get_kb_device,
+    split = Utils.greedy_split,
+    Split = Utils.lazy_split,
+    vector_to_table = Utils.vector_to_table,
+    magnitude = Utils.magnitude,
+    mat4_scale = Utils.mat4_scale,
+    write_vec34 = REFramework_Helpers.write_vec34,
+    read_vec34 = REFramework_Helpers.read_vec34,
+    read_mat4 = REFramework_Helpers.read_mat4,
+    write_mat4 = REFramework_Helpers.write_mat4,
+    trs_to_mat4 = Utils.trs_to_mat4,
+    mat4_to_trs = Utils.mat4_to_trs,
+    get_trs = REFramework_Helpers.get_trs,
+    create_resource = create_resource,
+    get_folders = get_folders,
+    get_table_size = Utils.get_table_size,
+    isArray = Utils.isArray,
+    arrayRemove = arrayRemove,
+    deferred_call = deferred_call,
+    get_children = get_children,
+    is_child_of = is_child_of,
+    get_player = get_player,
+    constructor = constructor,
+    is_lua_type = REFramework_Helpers.is_lua_type,
+    delete_component = delete_component,
+    lua_find_component = lua_find_component,
+    lua_get_components = lua_get_components,
+    lua_get_enumerator = lua_get_enumerator,
+    lua_get_system_array = lua_get_system_array,
+    reverse_table = Utils.reverse_table,
+    clamp = Utils.clamp,
+    smoothstep = Utils.smoothstep,
+    generate_statics = generate_statics,
+    get_enum = get_enum,
+    value_to_obj = REFramework_Helpers.value_to_obj,
+    to_obj = REFramework_Helpers.to_obj,
+    log_value = Display_Helpers.log_value,
+    logv = Display_Helpers.logv,
+    log_transform = Display_Helpers.log_transform,
+    log_bytes = Display_Helpers.log_bytes,
+    read_bytes = Display_Helpers.read_bytes,
+    log_method = Display_Helpers.log_method,
+    log_field = Display_Helpers.log_field,
+    log_typedef = Display_Helpers.log_typedef,
+    vector_to_string = Display_Helpers.vector_to_string,
+    mat4_to_string = Display_Helpers.mat4_to_string,
+    hashing_method = hashing_method,
+    get_gameobj_path = get_gameobj_path,
+    draw_world_pos = Display_Helpers.draw_world_pos,
+    offer_show_world_pos = Display_Helpers.offer_show_world_pos,
+    show_imgui_vec4 = Display_Helpers.show_imgui_vec4,
+    imgui_chain_settings = imgui_chain_settings,
+    read_field = read_field,
+    show_field = show_field,
+    show_prop = show_prop,
+    editable_table_field = editable_table_field,
+    imgui_anim_object_viewer = imgui_anim_object_viewer,
+    imgui_saved_materials_menu = imgui_saved_materials_menu,
+    draw_material_variable = draw_material_variable,
+    show_imgui_mats = show_imgui_mats,
+    is_unique_name = is_unique_name,
+    contains_xform = contains_xform,
+    look_at = look_at,
+    offer_grab = offer_grab,
+    add_resource_to_cache = add_resource_to_cache,
+    add_pfb_to_cache = add_pfb_to_cache,
+    search = ObjectSearchers.search,
+    sort = ObjectSearchers.sort,
+    sort_components = ObjectSearchers.sort_components,
+    closest = ObjectSearchers.closest,
+    calln = ObjectSearchers.calln,
+    find = ObjectSearchers.find,
+    findc = ObjectSearchers.findc,
+    findtdm = ObjectSearchers.findtdm,
+    find_index = Utils.find_index,
+    qsort = Utils.qsort,
+    read_imgui_pairs_table = read_imgui_pairs_table,
+    read_imgui_element = read_imgui_element,
+    get_first_gameobj = ObjectSearchers.get_first_gameobj,
+    get_all_folders = ObjectSearchers.get_all_folders,
+    get_transforms = ObjectSearchers.get_transforms,
+    searchf = ObjectSearchers.searchf,
+    check_key_released = check_key_released,
+    get_anim_object = get_anim_object,
+    dump_settings = dump_settings,
+    clear_object = clear_object,
+    make_obj = make_obj,
+    create_gameobj = create_gameobj,
+    obj_to_json = obj_to_json,
+    get_body_part = get_body_part,
+    is_obj_or_vt = REFramework_Helpers.is_obj_or_vt,
+    get_GameObject = REFramework_Helpers.get_GameObject,
+    get_fields_and_methods = Reflection_Utils.get_fields_and_methods,
+    nextValue = Utils.nextValue,
+    get_args = get_args,
+    read_unicode_string = REFramework_Helpers.read_unicode_string,
+    edit_obj = edit_obj,
+    edit_objs = edit_objs,
 }
 
 return EMV
